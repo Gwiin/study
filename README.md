@@ -5,10 +5,10 @@
 
 ## 2026-03-09
 
-- 구글 슬라이드 자기소개
-- wsl 설치
-- vscode, git 설치
-- os (리눅스 wsl 사용)
+    - 구글 슬라이드 자기소개
+    - wsl 설치
+    - vscode, git 설치
+    - os (리눅스 wsl 사용)
 
 - Ubuntu install
 ```bash
