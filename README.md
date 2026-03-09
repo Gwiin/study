@@ -25,7 +25,7 @@ git config --global user.name freshmea
 ```
 
 
-1. hello.c 작성
+1. hello.c 작성<br>
     `#` -> 전처리 지시자<br>
     `main` 함수 -> 엔트리 포인트<br>
     함수의 리턴값의 타입과 함수이름앞의 타입은 같아야함
