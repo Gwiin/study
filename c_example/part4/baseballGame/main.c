@@ -25,7 +25,7 @@ int main(){
         if(check_result(question, answer, &strike, &ball)){
             break;
         }
-        printf("-----------------------\n");
+        printf("\n");
         printf("%d Strike, %d Ball\n", strike, ball);
         printf("-----------------------\n");
     }

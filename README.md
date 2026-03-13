@@ -319,3 +319,5 @@ p=&nums[0];
 
 
 *[cmake사용법](./cmake사용법.md)*
+
+[야구게임실습](./c_example/part4/baseballGame)
