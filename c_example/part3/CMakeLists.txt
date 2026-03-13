@@ -2,7 +2,7 @@
 # sudo apt install build-essential
 # sudo apt install gdb
 
-# cmakelists.txt를 다시 저장해야 한다.
+# cmakelists.txt를 다시 저장해야한다.
 cmake_minimum_required(VERSION 3.10)
 project(study)
 
