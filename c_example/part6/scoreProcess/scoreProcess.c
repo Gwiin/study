@@ -1,5 +1,17 @@
 #include "scoreProcess.h"
 
+int count_studetns(FILE *fp){
+    int count = 0;
+    char tmp[100];
+    while (fgets(tmp, sizeof(tmp), fp)!=NULL){ 
+        if(tmp[0]!='\n' && tmp[0]!='\r'){ 
+            count++;
+        }
+    }
+    rewind(fp); // 파일 포인터를 처음으로 되돌림
+    return count;
+}
+
 void inputData(FILE *fp, Sdata *s, int n)
 {
     for (int i=0; i<n; i++){

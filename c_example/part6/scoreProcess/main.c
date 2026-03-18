@@ -13,11 +13,12 @@ int main(void){
     // char *foutpath = "/home/asd/0309/study/c_example/part6/scoreProcess/score.out";
     FILE *fin  = fopen(finpath,"r");
     FILE *fout = fopen(foutpath,"w");
-    int n;
 
-    // printf("처리할 학생의 수를 입력하세요: ");
-    // if (scanf("%d",&n)!=1)
-    //     return 1;
+    int n = count_studetns(fin); // 학생 수를 세는 함수, 파일에서 학생 수를 계산하여 반환
+
+    /*printf("처리할 학생의 수를 입력하세요: ");
+    if (scanf("%d",&n)!=1)
+        return 1;*/ // 학생수 직접 입력받는 부분
 
     if (fin == NULL || fout == NULL) 
     {
@@ -25,6 +26,7 @@ int main(void){
         return 1;
     }
 
+    /*
     FILE *fin_count = fopen(finpath, "r");
 
     if (fin_count == NULL)
@@ -52,6 +54,7 @@ int main(void){
         fclose(fout);
         return 1;
     }
+    */ // 학생 수를 파일에서 직접 계산하는 부분, count_students 함수로 대체
 
     Sdata *students = (Sdata *)malloc(sizeof(Sdata) * n);
     Sdata **table = (Sdata **)malloc(sizeof(Sdata*) * n);
