@@ -29,4 +29,4 @@ built-in varialbe 이 있다
 인터프리터(C언어 프로그램) 언어
 ```
 
-[C로 만든 인터프리터](https://github.com/Gwiin/study/blob/main/basic/interpreter.c)
+[C로 만든 인터프리터](https://github.com/Gwiin/study/blob/main/python_example/basic/interpreter.c)
