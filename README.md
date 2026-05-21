@@ -1,34 +1,30 @@
 # Study Repository
 
-한 교육과정 안에서 진행한 C, 임베디드, C++ 학습 내용을 영역별로 정리한 저장소입니다.
+수업 실습을 과목별 개념 노트로 정리한 저장소임. 문서는 파일을 하나씩 설명하는 색인보다, 실습에서 반복해서 등장한 문법과 개념을 중심으로 읽을 수 있게 구성했음.
 
-## 학습 영역
+## 학습 순서
 
-| 폴더 | 내용 | 링크 |
-| --- | --- | --- |
-| `c/` | C 기초, 자료구조, C 프로젝트 | [README](./c/README.md) |
-| `embedded/` | ATmega128, Pico / Pico 2 W, 네트워크 실습 | [README](./embedded/README.md) |
-| `cpp/` | 앞으로 진행할 C++ 정리와 실습 | [README](./cpp/README.md) |
-| `doc/` | 수업 메모, 가이드 문서, 참고 자료 | [README](./doc/README.md) |
+| 순서 | 과목 | 실습 폴더 | 학습 정리 |
+| --- | --- | --- | --- |
+| 1 | C | `c/` | [C 학습 정리](./c/STUDY.md) |
+| 2 | ATmega128 | `embedded/atmega128/` | [ATmega128 학습 정리](./embedded/atmega128/STUDY.md) |
+| 3 | C++ | `cpp_code/` | [C++ 학습 정리](./cpp_code/STUDY.md) |
+| 4 | MySQL | `mysql/` | [MySQL 학습 정리](./mysql/STUDY.md) |
+| 5 | TCP/IP + Flask | `iot_tcpip/` | [TCP/IP + Flask 학습 정리](./iot_tcpip/STUDY.md) |
+| 6 | Python | `python_example/` | [Python 학습 정리](./python_example/study.md) |
 
-## 추천 보는 순서
+## 과목별 방향
 
-1. [C 영역 개요](./c/README.md)
-2. [C 기초 실습](./c/basics/README.md)
-3. [자료구조 실습](./c/ds/README.md)
-4. [C 프로젝트](./c/projects/README.md)
-5. [임베디드 영역 개요](./embedded/README.md)
-6. [ATmega128 실습](./embedded/atmega128/README.md)
-7. [Pico / Pico 2 W 실습](./embedded/pico/README.md)
-8. [C++ 학습 폴더](./cpp/README.md)
+- C: 값, 흐름 제어, 배열, 포인터, 구조체, 파일, 동적 메모리, 자료구조
+- ATmega128: register 기반 GPIO, timer, interrupt, PWM, UART, sensor, actuator
+- C++: C 문법에서 객체지향, reference, class, 생성자/소멸자, 복사로 확장
+- MySQL: table 관계, key, query, JOIN, subquery, DML/DDL/VIEW
+- TCP/IP + Flask: socket 통신, 동시성, HTTP route, template, frontend, DB 연동
+- Python: interpreter, 가상환경, 객체 참조, sequence, 반복, scope/frame
 
-## 정리 원칙
+## 기존 상세 README
 
-- 상위 `README.md`는 전체 로드맵과 링크를 담당합니다.
-- 영역별 상위 폴더에도 `README.md`를 두어 하위 주제를 연결합니다.
-- 새 실습을 추가할 때는 먼저 해당 폴더 `README.md`에 주제와 목적을 남깁니다.
-- 빌드 결과물은 `build/` 아래에 두고 학습 코드와 분리합니다.
-
-## 참고
-
-- 기존 루트 `README.md`에 있던 자세한 C 수업 메모는 [doc/kuhrd_c_notes_archive.md](./doc/kuhrd_c_notes_archive.md)로 보존했습니다.
+- [C 폴더 README](./c/README.md)
+- [Embedded 폴더 README](./embedded/README.md)
+- [C++ 폴더 README](./cpp_code/README.md)
+- [수업 메모 아카이브](./doc/kuhrd_c_notes_archive.md)
