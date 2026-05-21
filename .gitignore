@@ -1,5 +1,7 @@
 browse.*
 build/
+.vscode/
+pico/
 
 # Local editor / OS files
 .DS_Store
@@ -30,3 +32,8 @@ cmake-build-*/
 *.map
 *.lst
 *.dis
+*.dSYM/
+
+# Local C++ practice binaries
+/cpp_code/practice/chap03/quiz/q09
+/cpp_code/practice/chap03/quiz/q11/q11
