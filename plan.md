@@ -1,38 +1,27 @@
-# Study Documentation Plan
+# VS Code C# Dev Kit Pico SDK Warning Plan
 
 ## Target Outcome
-- Replace file-by-file code excerpt notes with concept-first learning notes.
-- Keep original practice source files unchanged.
-- Keep root `README.md` as a compact navigation hub.
-- Keep `mysql/*.sql` split files from the previous work.
-- Update six subject summaries so concepts, syntax, and learning meaning come first.
+- Stop C# tooling from scanning vendor Pico SDK / lwIP legacy `.csproj` files in this study workspace.
+- Keep source code and SDK files unchanged.
 
 ## Success Criteria
-- No `STUDY.md` uses the file-by-file template: `이 파일에서 보는 개념`, `원본 코드 일부`, `코드 해설`.
-- No subject document has the headings `학습 범위`, `핵심 개념`, or `실습 파일별 코드와 개념`.
-- Code snippets appear only when they help explain a concept.
-- Source/practice files are not modified.
-- Markdown links point to existing local files.
+- Workspace settings exclude Pico SDK dependency paths from VS Code file search/watch and C# project discovery.
+- Existing C/C++ and CMake settings remain intact.
+- JSON settings validate.
 
 ## Relevant Files
-- Modify: `README.md`
-- Modify: `c/STUDY.md`
-- Modify: `embedded/atmega128/STUDY.md`
-- Modify: `cpp_code/STUDY.md`
-- Modify: `mysql/STUDY.md`
-- Modify: `iot_tcpip/STUDY.md`
-- Modify: `python_example/study.md`
+- Modify: `.vscode/settings.json`
+- Modify: `plan.md`
 
 ## Implementation Checklist
-- [x] Inspect previous generated docs and current user correction.
-- [x] Convert subject docs from file-index style to concept-note style.
-- [x] Keep only short supporting code snippets where useful.
-- [x] Validate headings, removed labels, links, and git status.
+- [x] Inspect current VS Code settings and C# extension settings.
+- [x] Confirm the logged `.csproj` files are vendor legacy .NET Framework projects, not study source.
+- [x] Add narrow workspace excludes for `pico/deps` and `embedded/pico/deps`.
+- [x] Validate JSON and summarize restart/reload step.
 
 ## Validation Checks
-- `rg "학습 범위|핵심 개념|실습 파일별 코드와 개념|이 파일에서 보는 개념|원본 코드 일부|코드 해설" c/STUDY.md embedded/atmega128/STUDY.md cpp_code/STUDY.md mysql/STUDY.md iot_tcpip/STUDY.md python_example/study.md`
-- `python3` link check for Markdown links.
-- `git status --short`
+- `python3 -m json.tool .vscode/settings.json`
+- `git diff -- .vscode/settings.json plan.md`
 
 ## Blockers / Open Questions
-- None.
+- The exact logged path `pico/deps/...` is not present in the current workspace. Current repo has `embedded/pico/deps/pico-sdk`; both path shapes will be excluded.
