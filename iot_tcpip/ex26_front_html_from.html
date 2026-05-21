@@ -1,0 +1,67 @@
+<!-- ex26_front_html_from.html -->
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>form test</h1>
+    <form>
+        <fieldset>
+            <legend>그룹 1</legend>
+            <label>ID
+                <input type="text" name="userid" value="ID를 입력하세요" size="10" maxsize="20">
+            </label>
+            <label>PW
+                <input type="password" name="passwd">
+            </label>
+            <input type="submit" value="제출">
+            <!--http://127.0.0.1:5500/ex26_front_html_from.html?userid=asdf&passwd=1234-->
+        </fieldset>
+        <fieldset>
+            <div>Text input: <input type="text"></div>
+            <div>url input: <input type="url"></div>
+            <div>search input: <input type="search"></div>
+            <div>email input: <input type="email"></div>
+            <div>phone input: <input type="phone" value="000-0000-0000"></div>
+
+            <div><input type="submit" value="제출"></div>
+
+            <div><input type="datetime-local" name="local"></div>
+            <div><input type="month" name="month"></div>
+            <div><input type="date" name="date"></div>
+            <div><input type="time" name="time"></div>
+            <div><input type="color" name="color"></div>
+
+        </fieldset>
+
+        <fieldset>
+            <p>다중 선택 : checkbok</p>
+            <p>오늘 점심 먹을 사람</p>
+            <label><input type="checkbox" name="lunch_member" value="ralo">랄로</label>
+            <label><input type="checkbox" name="lunch_member" value="dopa">도파</label>
+            <label><input type="checkbox" name="lunch_member" value="monsterrat">괴물쥐</label>
+            <label><input type="checkbox" name="lunch_member" value="paka">파카</label>
+
+            <p>한개 선택 : radiobox</p>
+            <p>점심 메뉴</p>
+            <label><input type="radio" name="lunch_menu", value="noodle">쌀국수</label>
+            <label><input type="radio" name="lunch_menu", value="bibimbab">비빔밥</label>
+            <label><input type="radio" name="lunch_menu", value="kimchi">김치찌개</label>
+            <label><input type="radio" name="lunch_menu", value="ramen" checked >라면</label>
+            <div><input type="submit" value="제출"></div>
+            
+        </fieldset>
+        <fieldset>
+            <input type="text" name="readonlyInput" value="여기는 읽기 전용" readonly>
+            <input type="text" name="requiredInput" value="여기는 필수 입력" required>
+            <input type="text" name="placeholderInput" placeholder="여기는 이름을 입력." >
+            
+        </fieldset>
+    </form>
+</body>
+</html>
+

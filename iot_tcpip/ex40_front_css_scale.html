@@ -1,0 +1,41 @@
+<!-- ex40_front_css_scale.html -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        #container{width: 800px; height: 200px;
+            margin: auto; background-color: beige;}
+        .origin{
+            width: 100px; height: 100px; border: 1px solid black; margin: 50px; float: left;
+        }
+        .origin div{
+            width: 100px; height: 100px; background-color: orange;
+        }
+        #scalex:hover{transform: scaleX(2.0);}
+        #scaley:hover{transform: scaleY(1.5);}
+        #scalexy:hover{transform: scale(0.7);}
+
+    </style>
+
+</head>
+<body>
+    <div id="container">
+        <div class="origin">
+            <div id="scalex">item 1</div>
+        </div>
+        <div class="origin">
+            <div id="scaley">item 2</div>
+        </div>
+        <div class="origin">
+            <div id="scalexy">item 3</div>
+        </div>
+
+    </div>
+    
+</body>
+</html>

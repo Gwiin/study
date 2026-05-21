@@ -1,0 +1,40 @@
+<!-- ex45_front_css_animation.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .container{width: 150px; margin: auto;}
+        .box{background-color: rgb(137, 121, 226); width: 100px; height: 100px; margin: 50px;
+            text-align: center; line-height: 90px;
+        }
+        #box1{ background-color: yellowgreen;
+            animation-name: shape; animation-duration: 3s;
+            animation-iteration-count: 3;
+        }
+        #box2{ background-color: rgb(137, 121, 226);
+            animation-name: rotate; animation-duration: 3s;
+            animation-iteration-count: infinite;    
+        }
+        @keyframes shape{
+            from{border: 1px solid transparent;}
+            to{border: 1px solid black; border-radius: 50%;}
+        }
+        @keyframes rotate{
+            from{transform: rotate(0deg);}
+            to{transform: rotate(3600deg);}
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="box" id="box1">box1</div>
+        <div class="box" id="box2">box2</div>
+    </div>
+    
+</body>
+</html>

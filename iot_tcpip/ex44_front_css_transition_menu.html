@@ -1,0 +1,62 @@
+<!-- ex44_front_css_transition_menu.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .container{width: 1000px; margin: 20px auto;}
+        .cat-list{list-style: none;}
+        .cat-list li{float: left; position: relative; margin: 50px;}
+        .cat-list img{width: 200px; height: 200px;}
+        .cat-list .caption{
+            position: absolute; top: 200px;
+            width: 200px; height: 200px;
+            background-color: rgba(0, 0, 0, 0.377);
+            opacity: 0;
+            transition: 1s ease;
+        }
+        .cat-list li:hover .caption{
+            opacity: 1;
+            transform: translateY(-200px);
+        }
+        .caption h2, .caption p{ color: aliceblue; text-align: center;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>고 양 이</h1>
+        <ul class="cat-list">
+            <li>
+                <img src="img/koreanshothair.jpg">
+                <div class="caption">
+                    <h2>코리안숏헤어</h2>
+                    <p>길고양이로 많이 발견되는</p>
+                    <p>한국에 사는 도메스틱 숏헤어</p>
+                </div>
+            </li>
+            <li>
+                <img src="img/Norwegian_forest.jpg">
+                <div class="caption">
+                    <h2>노르웨이 숲</h2>
+                    <p>놀숲이라고도 불리며</p>
+                    <p>노르웨이 수목지대에서 발생</p>
+                </div>
+            </li>
+            <li>
+                <img src="img/Siamese.jpg">
+                <div class="caption">
+                    <h2>샴</h2>
+                    <p>대표적인</p>
+                    <p>개냥이
+                    </p>
+                </div>
+            </li>
+
+        </ul>
+    </div>
+    
+</body>
+</html>

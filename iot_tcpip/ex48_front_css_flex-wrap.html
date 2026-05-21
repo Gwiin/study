@@ -1,0 +1,59 @@
+<!-- ex48_front_css_flex-wrap.html -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .container{
+            display: flex;
+            background-color: gray;
+            border: 1px solid white;
+        }
+        .box{
+            padding: 20px; margin: 10px;
+            background-color: black; width: 100px;
+        }
+        p{color: white; text-align: center;}
+        #opt1{flex-wrap: nowrap;}
+        #opt2{flex-wrap: wrap;}
+        #opt3{flex-wrap: wrap-reverse;}
+
+
+
+    </style>
+</head>
+<body>
+    <h1>브라우저 폭을 조정해 보자</h1>
+    <div class="container" id="opt1">
+        <div class="box"><p>1</p></div>
+        <div class="box"><p>2</p></div>
+        <div class="box"><p>3</p></div>
+        <div class="box"><p>4</p></div>
+        <div class="box"><p>5</p></div>
+        <div class="box"><p>6</p></div>
+    </div>
+    <div class="container" id="opt2">
+        <div class="box"><p>1</p></div>
+        <div class="box"><p>2</p></div>
+        <div class="box"><p>3</p></div>
+        <div class="box"><p>4</p></div>
+        <div class="box"><p>5</p></div>
+        <div class="box"><p>6</p></div>
+    </div>
+    <div class="container" id="opt3">
+        <div class="box"><p>1</p></div>
+        <div class="box"><p>2</p></div>
+        <div class="box"><p>3</p></div>
+        <div class="box"><p>4</p></div>
+        <div class="box"><p>5</p></div>
+        <div class="box"><p>6</p></div>
+    </div>
+
+
+
+</body>
+</html>

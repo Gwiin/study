@@ -1,0 +1,52 @@
+/* ex34_front_css_form_style_login.css */
+
+body{
+    background-color: rgb(190, 190, 190);
+}
+
+.login1{
+    background-color: white;
+    border: 1px solid rgb(0, 0, 0);
+    border-radius: 10px;
+    width: 400px;
+    margin: 50px auto;
+    padding: 10px;
+}
+.login1 fieldset{
+    border: 1px solid rgba(150, 150, 150, 0.5);
+    margin: 5px auto;
+}
+.login1 legend{
+    font-weight: bold;
+    font-size: 16px;
+}
+.login1 ul li{
+    list-style: none;
+    line-height: 35px;
+    display: flex;
+    align-items: center;
+    width: 350px;
+}
+.login1 label{
+    width: 100px;
+    flex-shrink: 0px;
+}
+.login1 input{
+    flex-grow: 1;
+    width: 150px;
+}
+.login1 ul{
+    padding-left: 10px;
+}
+.login1 input[required]{ border: 1px solid red; }
+
+.login1 input[readonly]{
+    border: none;
+}
+.login1 button{
+    border-radius: 20px;
+    border: 1px solid rgb(113, 212, 236);
+    display: block;
+    margin: 0 auto;
+    padding: 5px 30px;
+}
