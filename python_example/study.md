@@ -1284,3 +1284,288 @@ KeyError: '1234'
 - key는 문자열만 되는 것이 아니라 int, float, object도 가능하다
 - `1234`와 `"1234"`는 다른 key이다
 - 없는 key를 `[]`로 접근하면 `KeyError`가 난다
+
+
+### set()
+
+`set`은 집합 자료형이다.
+
+`set()`은 hash 기반으로 값을 저장한다.<br>
+그래서 list처럼 `set_a[0]` 이런 식의 인덱싱은 불가능하다.
+
+정확히는 많은 양의 데이터를 무조건 잘 다룬다기보다는,<br>
+중복 제거와 포함 여부 확인에 효과적이다.
+
+```python
+set_a = {1, 2, 3}
+```
+
+주의할 점
+```python
+set_a[0]
+```
+
+이런 식으로 접근하면 에러가 난다.<br>
+set은 순서로 값을 꺼내는 container가 아니다.
+
+`in`으로 값이 있는지 확인할 때 list보다 빠르게 동작하는 경우가 많다.
+
+```python
+2 in set_a
+```
+
+set은 중복을 허용하지 않는다.
+
+```python
+{1, 1, 2, 2, 3}
+```
+
+결과적으로는 `{1, 2, 3}`처럼 중복이 제거된다.
+
+집합 연산도 가능하다.
+
+```python
+a | b  # 합집합
+a & b  # 교집합
+a - b  # 차집합
+```
+
+정리:
+- set은 중복 없는 값들의 모음이다
+- hash 기반이라 포함 여부 확인에 유리하다
+- index가 없어서 `set_a[0]`은 안된다
+- 순서가 중요하면 list나 tuple을 사용해야 한다
+- 중복 제거, 집합 연산에 사용하기 좋다
+
+### tuple()
+
+`tuple`은 여러 값을 묶어서 저장하는 container이다.
+
+list와 비슷하게 순서가 있고 인덱싱도 가능하다.<br>
+하지만 list와 다르게 한 번 만들면 값을 바꿀 수 없다.
+
+```python
+tuple_a = (1, 2, 3)
+```
+
+`tuple_a[0]`처럼 인덱싱은 가능하다.
+
+```python
+tuple_a[0]
+```
+
+하지만 값을 바꾸는 것은 안된다.
+
+```python
+tuple_a[0] = 10
+```
+
+tuple은 immutable 객체이다.<br>
+immutable은 생성된 뒤 내부 값을 바꿀 수 없다는 뜻이다.
+
+함수에서 여러 값을 return하면 tuple로 묶여서 나오는 경우가 많다.
+
+```python
+return "ok", n
+```
+
+이런 return은 실제로는 tuple을 return하는 것과 비슷하다.
+
+```python
+("ok", n)
+```
+
+그리고 가변 매개변수 `*args`로 받은 값도 tuple이다.
+
+```python
+def func(*args):
+    pass
+```
+
+여기서 `args`는 tuple로 패킹된다.
+
+tuple은 packing, unpacking에서 자주 나온다.
+
+```python
+a, b, c = (1, 2, 3)
+```
+
+오른쪽 tuple의 값이 왼쪽 변수들로 unpacking된다.
+
+주의할 점
+```python
+a, b = (1, 2, 3)
+```
+
+값의 개수가 맞지 않으면 에러가 난다.
+
+값이 1개인 tuple은 쉼표가 중요하다.
+
+```python
+(1)   # int
+(1,)  # tuple
+```
+
+괄호보다 쉼표가 tuple을 만든다고 생각하면 좋다.
+
+정리:
+- tuple은 순서가 있는 container이다
+- indexing 가능하다
+- 한 번 만들면 값을 바꿀 수 없다
+- 함수 return 값 여러개, `*args`, packing/unpacking에서 자주 사용된다
+- 값 1개짜리 tuple은 `(1,)`처럼 쉼표가 필요하다
+
+
+
+## 환경세팅
+
+1. 가상 환경 세팅
+
+2. requirments.txt
+```bash
+$ pip freeze >> requirments.txt
+```
+
+.venv
+uv -> 빠르다
+
+### UV
+
+`uv`는 python package/project 관리 도구이다.<br>
+pip, venv, pyproject.toml 관리 쪽을 빠르게 처리해주는 도구라고 보면 된다.
+
+#### 설치방법
+```bash
+pip install uv
+```
+
+환경에 따라 `pip` 명령이 바로 안될 수 있으므로 아래처럼 실행할 수도 있다.
+
+```bash
+python3 -m pip install uv
+```
+
+#### 활용방법
+
+프로젝트 생성
+```bash
+python3 -m uv init
+```
+
+`uv init`을 하면 기본적으로 이런 파일들이 생긴다.
+
+```text
+pyproject.toml
+.python-version
+README.md
+main.py
+```
+
+`pyproject.toml`은 project 설정 파일이다.
+
+```toml
+[project]
+name = "uv-test"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = []
+```
+
+`requires-python`은 이 project에서 사용할 python version 조건이다.
+
+```toml
+requires-python = ">=3.13"
+```
+
+이렇게 되어 있으면 python 3.13 이상이 필요하다는 뜻이다.
+
+`.python-version` 파일도 python version을 알려주는 역할을 한다.
+
+```text
+3.13
+```
+
+가상환경과 package 맞추기
+```bash
+python3 -m uv sync
+```
+
+`uv sync`는 `pyproject.toml`, `uv.lock`을 기준으로 package와 가상환경을 맞춘다.<br>
+보통 project 안에 `.venv`가 만들어진다.
+
+package 설치
+```bash
+python3 -m uv add numpy
+```
+
+설치하면 `pyproject.toml`의 `dependencies`에 자동으로 추가된다.
+
+```toml
+dependencies = [
+    "numpy>=2.4.6",
+]
+```
+
+package 제거
+```bash
+python3 -m uv remove numpy
+```
+
+실행
+```bash
+python3 -m uv run python main.py
+```
+
+또는
+```bash
+python3 -m uv run main.py
+```
+
+python version 확인
+```bash
+python3 -m uv run python --version
+```
+
+이 명령으로 uv project 안에서 어떤 python이 실행되는지 확인할 수 있다.
+
+가상환경 삭제
+```bash
+rm -rf .venv
+```
+
+`.venv` 폴더를 지우면 가상환경이 삭제된다.<br>
+다시 만들고 싶으면 `uv sync`를 하면 된다.
+
+주의할 점
+- `pyproject.toml`은 project 설정 파일이라 함부로 지우지 않는다
+- `uv.lock`은 설치된 package version을 고정하는 파일이다
+- `.venv`는 가상환경 폴더라 지워도 다시 만들 수 있다
+- `uv` 명령이 안되면 `python3 -m uv`로 실행해본다
+- python version을 3.13으로 적어두면 실제로 3.13을 사용할 수 있어야 한다
+
+정리:
+- `pip install uv` 또는 `python3 -m pip install uv`로 설치
+- `python3 -m uv init`으로 project 생성
+- `python3 -m uv add package명`으로 package 설치
+- `python3 -m uv sync`로 가상환경/package 동기화
+- `python3 -m uv run ...`으로 project 환경에서 실행
+- `.venv`를 지우면 가상환경 삭제, 다시 만들려면 `uv sync`
+
+
+#### 패키지 배포
+
+pyproject.toml 파일에 아래 내용 추가
+```toml
+[project.scripts]
+test_package_main = "test_package.__init__:main"
+
+[build-system]
+requires = ["setuptools>=42","wheel"]
+build-backend = "setuptools.build_meta"
+```
+.whl 파일 생성
+```bash
+uv build --no-sources
+```
+
+
