@@ -578,4 +578,321 @@ python
 - list 안에는 서로 다른 type의 객체도 같이 넣을 수 있다
 - `type()`으로 확인하면 `<class 'list'>`가 나온다
 
+---
+
+## list indexing, 값 변경
+
+list는 순서가 있기 때문에 index로 접근할 수 있다.
+
+```python
+ptime = datetime.datetime.now()
+list_d = [1,2,3.141582, "padak", ptime]
+print(list_d)
+print(list_d[3])
+```
+
+`list_d[3]`은 4번째 원소를 의미한다.<br>
+index는 0부터 시작한다.
+
+출력결과
+```text
+[1, 2, 3.141582, 'padak', datetime.datetime(2026, 5, 22, 11, 46, 18, 582159)]
+padak
+```
+
+list는 값을 변경할 수 있다.
+
+```python
+list_d[3] = "agu"
+print(list_d[3])
+```
+
+출력결과
+```text
+agu
+```
+
+문자열은 한 글자만 바꾸는 것이 안되지만, list는 index 위치의 값을 바꿀 수 있다.
+
+```python
+list_e = [ [1, 2, 3] , [4, 5, 6] , [7, 8, 9] ]
+print(list_e)
+print(list_e[1][1])
+```
+
+list 안에 list를 넣을 수 있다.<br>
+2차원 배열 같은 느낌으로 사용할 수 있다.
+
+출력결과
+```text
+[[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+5
+```
+
+`list_e[1]`은 `[4, 5, 6]`이고,<br>
+`list_e[1][1]`은 그 안의 1번 index라서 `5`가 나온다.
+
+정리:
+- list는 index로 접근할 수 있다
+- index는 0부터 시작한다
+- list는 원소 값을 변경할 수 있다
+- list 안에 list를 넣으면 2차원 list처럼 사용할 수 있다
+
+---
+
+## list와 함수
+
+```python
+def make_20(var_a_b):
+    # global var_a
+    var_a_b[0] = 20
+```
+
+함수 안에서 list의 0번 값을 바꾸고 있다.
+
+```python
+def main():
+    var_a = 10
+    wrapper_list = [var_a] #list로 가두어서
+    make_20(wrapper_list)  #함수로 보냄 
+    var_a = wrapper_list[0]
+    print(var_a) # 20
+```
+
+출력결과
+```text
+20
+```
+
+`var_a` 자체를 함수에 보내면 정수 객체를 바로 바꾸는 느낌으로 사용하기 어렵다.<br>
+그래서 list로 감싸서 보내고, 함수 안에서 list 원소를 수정한다.
+
+```python
+wrapper_list = [var_a]
+make_20(wrapper_list)
+var_a = wrapper_list[0]
+```
+
+list는 함수로 보냈을 때 내부 원소를 바꾸면 바깥에서도 확인된다.
+
+```python
+list_a = [1, 2, 3]
+list_b = [4, 5, 6, list_a] # 값의 복사가 아니고 메모리 참조
+
+print(list_b)
+list_a[2] = 30
+print(list_b)
+```
+
+출력결과
+```text
+[4, 5, 6, [1, 2, 3]]
+[4, 5, 6, [1, 2, 30]]
+```
+
+`list_b` 안에 들어간 `list_a`는 값이 복사된 것이 아니라 같은 list를 참조하는 느낌이다.<br>
+그래서 `list_a[2]`를 바꾸면 `list_b` 안쪽에 들어있는 list도 바뀐 것처럼 보인다.
+
+>리스트의 이름은 값이 아니라 메모리를 다룬다.
+
+정리:
+- list를 함수에 보내면 내부 원소를 수정할 수 있다
+- list 안에 다른 list를 넣으면 참조 관계를 조심해야 한다
+- 단순 값 복사인지 같은 객체를 가리키는지 확인해야 한다
+
+---
+
+## list method
+
+list는 연산자와 method를 사용할 수 있다.
+
+```python
+list_a = [1,2,3]
+list_b = [4,5,6]
+print(list_a + list_b)
+print(list_a.__add__(list_b)) # 스페셜 메소드 (c++ 오버라이딩)
+```
+
+출력결과
+```text
+[1, 2, 3, 4, 5, 6]
+[1, 2, 3, 4, 5, 6]
+```
+
+`+` 연산은 list를 이어붙인 새로운 결과를 만든다.<br>
+내부적으로는 `__add__()` 같은 special method와 연결해서 생각할 수 있다.
+
+```python
+print(list_a := list_a.__add__(list_b))
+```
+
+`:=` 는 elephant sign이라고 적어둠.<br>
+정확히는 walrus operator라고 부르고, 대입하면서 값을 사용할 수 있다.
+
+출력결과
+```text
+[1, 2, 3, 4, 5, 6]
+```
+
+```python
+print(list_a.extend(list_b))
+print(list_a)
+```
+
+`extend()`는 list 자체를 수정한다.<br>
+return 값은 `None`이다.
+
+출력결과
+```text
+None
+[1, 2, 3, 4, 5, 6, 4, 5, 6]
+```
+
+`+`는 결과를 만들어주고, `extend()`는 원본 list를 수정하는 차이가 있다.
+
+```python
+print(list_a * 4)
+print(list_a.__mul__(4))
+```
+
+list에 `*`를 사용하면 반복된 list가 만들어진다.
+
+```text
+[1, 2, 3, 4, 5, 6, 4, 5, 6, 1, 2, 3, 4, 5, 6, 4, 5, 6, 1, 2, 3, 4, 5, 6, 4, 5, 6, 1, 2, 3, 4, 5, 6, 4, 5, 6]
+```
+
+### append, insert
+
+```python
+list_b.append("추가 원소")
+print(list_b)
+```
+
+`append()`는 list의 마지막에 원소 하나를 추가한다.
+
+출력결과
+```text
+[4, 5, 6, '추가 원소']
+```
+
+```python
+list_b.insert(3,7)
+print(list_b)
+```
+
+`insert(index, value)`는 원하는 위치에 값을 넣는다.
+
+출력결과
+```text
+[4, 5, 6, 7, '추가 원소']
+```
+
+### pop, remove
+
+```python
+print(list_b.pop())
+print(list_b)
+```
+
+`pop()`은 마지막 값을 꺼내고 list에서 제거한다.
+
+출력결과
+```text
+추가 원소
+[4, 5, 6, 7]
+```
+
+```python
+print(list_b.pop(0))
+print(list_b)
+```
+
+`pop(0)`처럼 index를 주면 해당 위치의 값을 꺼내고 제거한다.
+
+출력결과
+```text
+4
+[5, 6, 7]
+```
+
+```python
+list_b.remove(6)
+print(list_b)
+```
+
+`remove(값)`은 해당 값을 찾아서 삭제한다.
+
+출력결과
+```text
+[5, 7]
+```
+
+### index, len, in
+
+```python
+print(list_b.index(7)) # 인수의 인덱스 위치
+```
+
+`index()`는 값의 index 위치를 반환한다.
+
+출력결과
+```text
+1
+```
+
+```python
+list_b = ['a','b','c','d','e','f']
+list_e = [*str("abcdef padak mon")] # 리스트에 문자열 입력 (공백까지)
+print(list_b.index("e"))
+print(list_e)
+```
+
+문자열을 `[*str(...)]` 형태로 list에 넣으면 한 글자씩 나누어 들어간다.<br>
+공백도 하나의 문자라서 list에 들어간다.
+
+출력결과
+```text
+4
+['a', 'b', 'c', 'd', 'e', 'f', ' ', 'p', 'a', 'd', 'a', 'k', ' ', 'm', 'o', 'n']
+```
+
+```python
+print(list_e.__len__()) # 리스트 길이
+print(len(list_e))
+```
+
+`len()`은 list의 길이를 구할 때 사용한다.<br>
+`__len__()` special method를 직접 호출해도 같은 값이 나온다.
+
+출력결과
+```text
+16
+16
+```
+
+```python
+print("k" in list_e)
+print("g" in list_e)
+```
+
+`in`은 list 안에 값이 있는지 확인한다.<br>
+return은 bool이다.
+
+출력결과
+```text
+True
+False
+```
+
+정리:
+- `+` -> list를 합친 결과를 만든다
+- `extend()` -> list 자체를 수정하고 return은 `None`
+- `*` -> list를 반복한 결과를 만든다
+- `append()` -> 마지막에 원소 추가
+- `insert()` -> 원하는 index에 원소 추가
+- `pop()` -> 값을 꺼내면서 삭제
+- `remove()` -> 값을 찾아서 삭제
+- `index()` -> 값의 위치 확인
+- `len()` -> list 길이 확인
+- `in` -> 값이 list 안에 있는지 확인
 

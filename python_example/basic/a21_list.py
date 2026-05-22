@@ -11,6 +11,13 @@ def main():
     ptime = datetime.datetime.now()
     list_d = [1,2,3.141582, "padak", ptime]
     print(list_d)
+    print(list_d[3])
+    list_d[3] = "agu"
+    print(list_d[3])
+
+    list_e = [ [1, 2, 3] , [4, 5, 6] , [7, 8, 9] ]
+    print(list_e)
+    print(list_e[1][1])
 
 
 if __name__ == "__main__":
