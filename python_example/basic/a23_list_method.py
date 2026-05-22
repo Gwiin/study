@@ -1,3 +1,5 @@
+import datetime
+
 def main():
     list_a = [1,2,3]
     list_b = [4,5,6]
@@ -22,6 +24,19 @@ def main():
     # insert
     list_b.insert(3,7)
     print(list_b)
+
+    # 메모리 삭제
+    # del
+    del list_e[4]
+
+    #del 사용자 정의 객체를 삭제하는 경우
+    print(list_e)
+    ptime = datetime.datetime.now()
+    list_e.append(ptime) # type : ignore
+    print(list_e[16])
+    del list_e[16]
+    print(list_e)
+
 
     # 삭제
     print(list_b.pop())

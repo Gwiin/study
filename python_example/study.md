@@ -896,3 +896,253 @@ False
 - `len()` -> list 길이 확인
 - `in` -> 값이 list 안에 있는지 확인
 
+### list 삭제와 실행 순서 주의
+
+```python
+del list_e[4]
+```
+
+`del`은 list의 특정 index 원소를 삭제할 때 사용할 수 있다.
+
+다만 변수는 사용하기 전에 먼저 만들어져 있어야 한다.<br>
+`list_e`를 만들기 전에 `del list_e[4]`를 실행하면 `NameError`가 발생한다.
+
+```python
+list_e = [*str("abcdef padak mon")]
+del list_e[4]
+print(list_e)
+```
+
+위처럼 먼저 list를 만든 뒤 삭제해야 한다.
+
+```python
+ptime = datetime.datetime.now()
+list_e.append(ptime)
+print(list_e[16])
+del list_e[16]
+print(list_e)
+```
+
+list에는 문자열, 숫자뿐 아니라 `datetime` 객체 같은 사용자 정의 또는 library 객체도 넣을 수 있다.<br>
+`append()`로 객체를 추가하고, `del`로 해당 index의 객체를 삭제할 수 있다.
+
+## list comprehension
+
+`basic/a30_list_comprehension.py`에서는 list comprehension으로 반복문과 조건문을 한 줄에 사용한다.
+
+```python
+li = [i**2 for i in range(100) if i % 2 == 0]
+```
+
+구조:
+
+```python
+[결과 for 변수 in 컨테이너 if 조건]
+```
+
+위 코드는 `0`부터 `99`까지 반복하면서 짝수만 골라 제곱한 값을 list로 만든다.
+
+일반 반복문으로 쓰면 다음과 비슷하다.
+
+```python
+li = []
+for i in range(100):
+    if i % 2 == 0:
+        li.append(i**2)
+```
+
+list comprehension은 짧고 읽기 좋게 list를 만들 때 사용한다.<br>
+조건이 너무 복잡해지면 일반 `for`문으로 풀어 쓰는 것이 더 좋다.
+
+### random.shuffle
+
+```python
+random.shuffle(li)
+```
+
+`random.shuffle()`은 list의 순서를 무작위로 섞는다.<br>
+주의할 점은 원본 list 자체를 수정하고, return 값은 `None`이라는 것이다.
+
+```python
+print(min(li), max(li), sum(li))
+```
+
+- `min(li)`: list에서 가장 작은 값
+- `max(li)`: list에서 가장 큰 값
+- `sum(li)`: list 안 숫자의 합계
+
+### sort
+
+```python
+li.sort()
+print(li)
+
+li.sort(reverse=True)
+print(li)
+```
+
+`sort()`는 list 자체를 오름차순으로 정렬한다.<br>
+`reverse=True`를 주면 내림차순으로 정렬한다.
+
+정리:
+- list comprehension -> list를 짧게 생성
+- `random.shuffle()` -> list 순서를 무작위로 섞음
+- `min()` -> 최솟값
+- `max()` -> 최댓값
+- `sum()` -> 합계
+- `sort()` -> list 자체를 정렬
+
+## module import
+
+`basic/hello_use_module.py`에서는 다른 Python file에 있는 변수를 가져와 사용한다.
+
+```python
+from test_package.module_b import module_var_b
+from test_package.module_a import module_var_a
+```
+
+`from 패키지.모듈 import 이름` 형식이다.
+
+- `test_package`: package 폴더
+- `module_a`, `module_b`: Python module file
+- `module_var_a`, `module_var_b`: module 안에 정의된 변수
+
+가져온 변수는 현재 file에서 바로 사용할 수 있다.
+
+```python
+def main():
+    print(module_var_a)
+    print(module_var_b)
+```
+
+module을 import하면 다른 file에 작성한 함수, 변수, class를 재사용할 수 있다.<br>
+코드를 기능별 file로 나누고 필요할 때 가져와 쓰는 것이 module 사용의 기본 목적이다.
+
+직접 실행할 때는 기존과 같이 진입점 패턴을 사용한다.
+
+```python
+if __name__ == "__main__":
+    main()
+```
+
+정리:
+- module -> Python file 하나
+- package -> module들을 담는 폴더
+- `import` -> 다른 module의 코드를 가져오는 문법
+- `from ... import ...` -> module 안의 특정 이름만 가져옴
+- `__name__ == "__main__"` -> 직접 실행할 때만 `main()` 호출
+
+## package import와 `__init__.py`
+
+`basic/a90_package_import.py`에서는 package 자체를 import해서 사용하는 방법을 확인한다.
+
+```python
+import test_package
+from test_package import *
+```
+
+`import test_package`는 package 자체를 가져온다.<br>
+이 방식으로 가져오면 package 안의 이름을 사용할 때 package 이름을 붙여 접근한다.
+
+```python
+print(test_package.module_var_a)
+test_package.module_b_func()
+print(test_package.Module_A())
+test_package.package_func()
+```
+
+`test_package.module_var_a`처럼 `패키지이름.이름` 형태로 사용한다.<br>
+이 방식은 어디에서 가져온 이름인지 코드에서 분명하게 보인다.
+
+### `from test_package import *`
+
+```python
+from test_package import *
+```
+
+`*` import는 package에서 공개된 이름들을 현재 file로 바로 가져온다.
+
+그래서 아래처럼 package 이름 없이 사용할 수 있다.
+
+```python
+print(module_var_a)
+print(module_var_b)
+```
+
+다만 `*` import는 어떤 이름이 현재 namespace에 들어오는지 한눈에 보기 어렵다.<br>
+학습용으로는 동작을 이해하기 좋지만, 실제 코드에서는 필요한 이름만 명시해서 import하는 편이 더 안전하다.
+
+### `__init__.py`
+
+`basic/test_package/__init__.py`는 package가 import될 때 실행되는 file이다.
+
+```python
+from .module_a import module_var_a, module_a_func, Module_A
+from .module_b import module_var_b, module_b_func, Module_B
+```
+
+`.`은 현재 package를 뜻하는 상대 import이다.<br>
+즉 `test_package` 안에서 `module_a`, `module_b`를 가져온다는 의미이다.
+
+위 코드를 통해 `module_a.py`, `module_b.py` 안에 있던 변수, 함수, class를 package 수준으로 끌어올릴 수 있다.
+
+예를 들어 원래는 다음처럼 쓸 수 있는 이름을
+
+```python
+from test_package.module_a import Module_A
+```
+
+`__init__.py`에서 import해두면 다음처럼 package를 통해 접근할 수 있다.
+
+```python
+import test_package
+
+print(test_package.Module_A())
+```
+
+### `__all__`
+
+```python
+__all__ = ["module_var_a", "module_var_b"]
+```
+
+`__all__`은 `from test_package import *`를 했을 때 어떤 이름을 가져올지 정하는 list이다.
+
+현재 설정에서는 `*` import를 하면 `module_var_a`, `module_var_b`만 직접 가져온다.<br>
+그래서 `a90_package_import.py`에서 다음 코드는 package 이름 없이 사용할 수 있다.
+
+```python
+print(module_var_a)
+print(module_var_b)
+```
+
+하지만 `Module_A`, `module_b_func`, `package_func`는 `__all__`에 없기 때문에 `*` import로 직접 들어오지 않는다.<br>
+이 이름들은 `test_package.Module_A`, `test_package.module_b_func`, `test_package.package_func`처럼 package 이름을 붙여 사용한다.
+
+### package import 시 실행되는 코드
+
+```python
+print("test_package 패키지에서 실행되는 프린트다.")
+```
+
+`__init__.py`의 맨 아래에 있는 이 코드는 package를 import할 때 실행된다.<br>
+그래서 `import test_package`를 하면 이 print가 실행될 수 있다.
+
+일반적으로 import할 때 불필요한 출력이나 실행이 생기지 않도록 주의해야 한다.<br>
+테스트용 코드는 보통 아래처럼 `main()` 진입점 안에 넣는 것이 좋다.
+
+```python
+if __name__ == "__main__":
+    main()
+```
+
+현재 `__init__.py`에는 `main()` 함수가 정의되어 있지만 직접 호출하지는 않는다.<br>
+대신 file 맨 아래의 `print()`는 import 시 바로 실행된다.
+
+정리:
+- package를 import하면 package의 `__init__.py`가 실행된다
+- `import test_package` -> `test_package.이름` 형태로 접근
+- `from test_package import *` -> `__all__`에 적힌 이름을 직접 가져옴
+- `.` import -> 현재 package 기준 상대 import
+- `__init__.py`는 package의 공개 interface를 정리하는 역할을 할 수 있음
+- import 시 실행될 코드는 신중히 작성해야 함
