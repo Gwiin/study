@@ -1146,3 +1146,141 @@ if __name__ == "__main__":
 - `.` import -> 현재 package 기준 상대 import
 - `__init__.py`는 package의 공개 interface를 정리하는 역할을 할 수 있음
 - import 시 실행될 코드는 신중히 작성해야 함
+
+## dictionary
+
+`dict`는 key와 value를 묶어서 저장하는 container이다.
+
+c에서 배열은 index가 숫자로 정해져 있는 느낌이라면,<br>
+python의 dict는 내가 정한 key로 value를 찾을 수 있다.
+
+```python
+dict_a = {}
+dict_b = dict()
+print(type(dict_a))
+print(type(dict_b))
+```
+
+출력 결과
+```text
+<class 'dict'>
+<class 'dict'>
+```
+
+`{}`는 비어있는 dict이다.<br>
+`dict()`를 사용해도 빈 dict를 만들 수 있다.
+
+### set과 헷갈릴 수 있음
+
+```python
+set_a = {1,2}
+print(type(set_a))
+```
+
+출력 결과
+```text
+<class 'set'>
+```
+
+중괄호를 사용한다고 무조건 dict는 아니다.
+
+```python
+{}        # 빈 dict
+{1, 2}    # set
+{"a": 1}  # dict
+```
+
+`key: value` 형태가 있으면 dict이다.<br>
+값만 있으면 set이다.
+
+### dict key
+
+```python
+class A():
+    pass
+
+a = A()
+dict_c = {"a":1234, "b":897, "c":876, 1234: 5678, 3.14:1.111, a:4.444}
+print(type(dict_c))
+print(dict_c)
+```
+
+출력 결과
+```text
+<class 'dict'>
+{'a': 1234, 'b': 897, 'c': 876, 1234: 5678, 3.14: 1.111, <__main__.main.<locals>.A object at ...>: 4.444}
+```
+
+dict의 key는 문자열만 되는 것이 아니다.
+
+```python
+"a"     # str key
+1234    # int key
+3.14    # float key
+a       # object key
+```
+
+이런 값들도 key로 사용할 수 있다.
+
+단, key로 쓰려면 내부적으로 hash가 가능해야 한다.<br>
+list처럼 바뀔 수 있는 객체는 보통 key로 쓰기 어렵다.
+
+### key로 value 가져오기
+
+```python
+print(dict_c[a])
+print(dict_c[3.14])
+print(dict_c["c"])
+```
+
+출력 결과
+```text
+4.444
+1.111
+876
+```
+
+dict는 key를 넣으면 value가 나온다.
+
+```python
+dict_c["c"]
+```
+
+이 코드는 `"c"`라는 key에 연결된 value를 가져온다.
+
+### 숫자 key와 문자열 key는 다름
+
+```python
+print(dict_c["1234"])
+```
+
+실행 결과
+```text
+KeyError: '1234'
+```
+
+`dict_c`에는 `1234`라는 int key는 있다.
+
+```python
+1234: 5678
+```
+
+하지만 `"1234"`라는 str key는 없다.
+
+```python
+1234    # int
+"1234"  # str
+```
+
+두 개는 출력했을 때 비슷해 보여도 type이 다르다.<br>
+그래서 dict에서는 다른 key로 본다.
+
+없는 key를 `dict_c["1234"]`처럼 바로 접근하면 `KeyError`가 발생한다.
+
+정리:
+- dict는 `key: value` 구조이다
+- `{}`는 빈 dict이다
+- `{1, 2}`는 set이다
+- key는 문자열만 되는 것이 아니라 int, float, object도 가능하다
+- `1234`와 `"1234"`는 다른 key이다
+- 없는 key를 `[]`로 접근하면 `KeyError`가 난다
