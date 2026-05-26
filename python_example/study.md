@@ -2548,3 +2548,208 @@ Student(name='abc', korean=34, math=65, english=35, science=94)
 - `dataclass`를 쓰려면 `from dataclasses import dataclass`가 필요하다
 - type hint를 적어야 field로 인식된다
 - 복잡한 동작보다 데이터 저장이 중심인 class에 잘 맞는다
+
+## file write
+
+파일을 쓸 때는 `open()`을 사용한다.<br>
+파일 경로는 문자열로 직접 써도 되지만, `pathlib.Path`를 사용하면 경로를 다루기 편하다.
+
+```python
+from pathlib import Path
+
+
+def main():
+    path = Path(r"/home/hrd_1_3/study/python_example/data")
+
+    with open(path / "text.txt", "a") as f:
+        f.write("hello!!!")
+```
+
+`path / "text.txt"`는 경로를 합치는 표현이다.<br>
+문자열을 `+`로 이어붙이는 것보다 OS 경로를 다룰 때 자연스럽다.
+
+파일 모드:
+- `"w"` -> write, 새로 쓰기. 기존 내용이 지워질 수 있다
+- `"a"` -> append, 기존 내용 뒤에 추가
+- `"r"` -> read, 읽기
+
+`with open(...) as f:`를 사용하면 파일을 사용한 뒤 자동으로 닫힌다.<br>
+그래서 `f.close()`를 직접 호출하지 않아도 된다.
+
+주의할 점:
+- `"a"` 모드는 뒤에 이어붙인다
+- `f.write("hello!!!")`에는 줄바꿈이 없어서 기존 내용 바로 뒤에 붙을 수 있다
+- 줄을 바꾸고 싶으면 `"hello!!!\n"`처럼 `\n`을 넣어야 한다
+
+## file read
+
+파일을 읽을 때도 `with open()`을 사용할 수 있다.
+
+```python
+from pathlib import Path
+import sys
+
+
+def main():
+    path = Path(r"/home/hrd_1_3/study/python_example/data")
+
+    with open(path / "text.txt", "r") as f:
+        while data := f.readline():
+            print(data)
+```
+
+`readlines()`는 파일 전체 줄을 list로 가져온다.<br>
+`read()`는 파일 전체 내용을 문자열로 가져온다.
+
+파일이 크면 한 번에 전부 읽는 것보다,<br>
+`readline()`으로 한 줄씩 읽는 방식이 메모리 사용에 좋다.
+
+```python
+while data := f.readline():
+    print(data)
+```
+
+16번 줄의 `:=`는 walrus operator이다.<br>
+이미 앞에서 [list method 정리 부분](/home/hrd_1_3/study/python_example/study.md:726)에 한 번 적어두었다.
+
+여기서는 `f.readline()` 결과를 `data`에 대입하면서,<br>
+그 값이 비어있는지 아닌지를 `while` 조건으로 같이 확인한다.
+
+풀어서 쓰면 이런 느낌이다.
+
+```python
+while True:
+    data = f.readline()
+    if not data:
+        break
+    print(data)
+```
+
+`readline()`은 더 읽을 줄이 없으면 빈 문자열 `""`을 return한다.<br>
+빈 문자열은 조건식에서 `False`처럼 동작하므로 while문이 끝난다.
+
+주의할 점:
+- `print(data)`는 기본적으로 줄바꿈을 한 번 더 한다
+- `data` 안에도 파일에서 읽은 `\n`이 들어있을 수 있다
+- 그래서 출력할 때 줄이 한 줄씩 더 비어 보일 수 있다
+
+### standard stream
+
+```python
+print(sys.stdin.fileno())
+print(sys.stdout.fileno())
+print(sys.stderr.fileno())
+print("error message", file=sys.stderr)
+```
+
+표준 입출력도 파일처럼 다룰 수 있다.
+
+정리:
+- `sys.stdin` -> 표준 입력
+- `sys.stdout` -> 표준 출력
+- `sys.stderr` -> 표준 에러
+- `print(..., file=sys.stderr)` -> 에러 출력 쪽으로 출력
+
+```python
+with open(path / "text.txt", "a", encoding="utf-8") as f:
+    print("이것은 프린트로 파일을 쓴 데이터이다.", file=f)
+```
+
+`print()`도 `file=` 옵션을 주면 화면이 아니라 파일에 쓸 수 있다.<br>
+`print()`는 기본적으로 끝에 줄바꿈을 붙이므로 `f.write()`와 차이가 있다.
+
+## JSON serialization
+
+JSON 파일은 Python에서 `json` module로 읽을 수 있다.
+
+```python
+import json
+from pathlib import Path
+
+
+def main():
+    path = Path(r"/home/hrd_1_3/study/python_example/data/test.json")
+
+    with path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+        print(data)
+        print(type(data))
+```
+
+`json.load(f)`는 파일 객체에서 JSON 데이터를 읽어서 Python 객체로 바꾼다.<br>
+예제에서는 JSON object가 Python `dict`로 변환된다.
+
+실행 결과
+```text
+{'abc': 123, 'name': 'son', 'subject': {'korean': 99, 'math': 83}}
+<class 'dict'>
+```
+
+정리:
+- JSON object -> Python dict
+- JSON string -> Python str
+- JSON number -> Python int 또는 float
+- JSON array -> Python list
+- `json.load(f)` -> 파일에서 읽기
+
+## YAML serialization
+
+YAML 파일은 `yaml` module을 사용해서 읽을 수 있다.<br>
+실습에서는 `pyyaml` package가 필요하다.
+
+```python
+# python3.10 -m pip install pyyaml
+
+from pathlib import Path
+
+import yaml
+
+
+def main():
+    path = Path(r"/home/hrd_1_3/study/python_example/data/test.yaml")
+
+    with path.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+        print(data)
+        print(type(data))
+        print(data["abc"])
+        print(data["subject"]["korean"])
+```
+
+`yaml.safe_load(f)`는 YAML 파일을 Python 객체로 바꾼다.<br>
+예제에서는 YAML 내용도 Python `dict`로 바뀐다.
+
+실행 결과
+```text
+{'abc': 123, 'name': 'son', 'subject': {'korean': 99, 'math': 83}}
+<class 'dict'>
+123
+99
+```
+
+YAML 원본
+```yaml
+abc: 123
+name: son
+subject:
+  korean: 99
+  math: 83
+```
+
+중첩된 값은 dict 안의 dict처럼 접근한다.
+
+```python
+data["subject"]["korean"]
+```
+
+정리:
+- YAML도 Python에서 dict/list 형태로 읽을 수 있다
+- `yaml.safe_load()`를 사용하는 것이 일반적으로 안전하다
+- 설정 파일은 JSON보다 YAML이 더 읽기 편할 때가 있다
+- 들여쓰기로 구조를 표현하므로 indentation을 조심해야 한다
+
+JSON과 YAML 비교:
+- JSON은 문법이 엄격하고 다른 언어와 주고받기 좋다
+- YAML은 사람이 읽고 쓰기 편해서 설정 파일에 자주 사용한다
+- Python으로 읽으면 둘 다 dict/list 같은 객체로 다룰 수 있다
+
