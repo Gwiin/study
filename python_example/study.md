@@ -1812,3 +1812,296 @@ dgd	 33	 25	 75	 93	 226	 56.5
 - 객체 여러 개는 list에 담아서 for문으로 순회하면 된다
 - 객체를 보기 좋게 출력하고 싶으면 `__repr__` 또는 `__str__`을 사용할 수 있다
 - 사용자가 보기 위한 출력은 보통 `__str__`, 개발자가 확인하기 위한 표현은 보통 `__repr__` 느낌으로 사용한다
+
+### isinstance
+
+객체가 어떤 class로 만들어졌는지 확인할 때 `isinstance()`를 사용할 수 있다.
+
+```python
+class Student(object): # 상속 문법, object가 이미 숨겨져 있다
+    def study(self):
+        print("studying")
+
+
+class Teacher:
+    def teach(self):
+        print("teaching")
+```
+
+Python class는 기본적으로 `object`를 상속받는다.<br>
+그래서 `class Student(object)`라고 적어도 되고, 그냥 `class Student`라고 적어도 된다.
+
+```python
+student = Student()
+
+print(isinstance(student, Student))
+print(isinstance(student, int))
+print(isinstance(student, object))
+
+print(isinstance(1, object))
+print(isinstance([1, 2, 3, student], object))
+```
+
+출력 결과
+```text
+True
+False
+True
+True
+True
+```
+
+`student`는 `Student` 객체라서 `Student` 검사 결과는 `True`이다.<br>
+`int` 객체는 아니기 때문에 `False`가 나온다.
+
+주의할 점:
+- Python의 거의 모든 값은 객체이다
+- 숫자 `1`, list도 object로 볼 수 있다
+- 그래서 `isinstance(1, object)`도 `True`이다
+
+### isinstance로 타입에 따라 다르게 실행
+
+```python
+classroom = [Student(), Student(), Teacher(), Student(), Student()]
+
+for person in classroom:
+    if isinstance(person, Student):
+        person.study()
+    if isinstance(person, Teacher):
+        person.teach()
+```
+
+출력 결과
+```text
+studying
+studying
+teaching
+studying
+studying
+```
+
+`classroom` list 안에는 `Student` 객체와 `Teacher` 객체가 섞여 있다.<br>
+그냥 `person.study()`를 호출하면 `Teacher` 객체에서는 에러가 날 수 있다.
+
+그래서 `isinstance()`로 먼저 확인하고,<br>
+해당 객체가 가지고 있는 method만 호출한다.
+
+정리:
+- `isinstance(객체, 클래스)` -> 객체가 그 class의 instance인지 확인
+- 결과는 `True` 또는 `False`
+- 여러 종류의 객체가 섞여 있을 때 안전하게 method 호출 가능
+
+### special method로 연산자 사용
+
+기본 `Student` class에 special method를 추가하면 객체끼리 연산자를 사용할 수 있다.
+
+```python
+def __add__(self, other):
+    return self.get_sum() + other.get_sum()
+
+def __sub__(self, other):
+    return self.get_sum() - other.get_sum()
+
+def __mul__(self, other):
+    return self.get_sum() * other.get_sum()
+
+def __truediv__(self, other):
+    return self.get_sum() / other.get_sum()
+```
+
+`students[0] + students[1]`처럼 객체끼리 더해도,<br>
+내부적으로는 `__add__`가 호출된다.
+
+```python
+print("students[0] + students[1]", students[0] + students[1])
+print("students[0] - students[1]", students[0] - students[1])
+print("students[0] * students[1]", students[0] * students[1])
+print("students[0] / students[1]", students[0] / students[1])
+```
+
+출력 결과
+```text
+students[0] + students[1] 402
+students[0] - students[1] 54
+students[0] * students[1] 39672
+students[0] / students[1] 1.3103448275862069
+```
+
+여기서는 객체 자체를 더하는 것이 아니라,<br>
+각 객체의 총점 `get_sum()` 결과를 가지고 계산하게 만든 것이다.
+
+연산자와 special method
+- `+` -> `__add__`
+- `-` -> `__sub__`
+- `*` -> `__mul__`
+- `/` -> `__truediv__`
+- `>` -> `__gt__`
+- `<` -> `__lt__`
+- `==` -> `__eq__`
+- `!=` -> `__ne__`
+- `>=` -> `__ge__`
+- `<=` -> `__le__`
+
+주의할 점:
+- `/`는 `__truediv__`이다
+- `divmod()`에 대응되는 것은 `__divmod__`이다
+
+### 비교 연산자와 타입 검사
+
+```python
+def __gt__(self, other):
+    if isinstance(other, Student):
+        return self.get_sum() > other.get_sum()
+    else:
+        return "error"
+```
+
+`>` 연산자를 사용하면 `__gt__`가 호출된다.
+
+```python
+print("students[0] > students[1]", students[0] > students[1])
+print("students[0] > students[1]", students[0] > 90)
+```
+
+출력 결과
+```text
+students[0] > students[1] True
+students[0] > students[1] error
+```
+
+첫 번째는 `Student` 객체끼리 비교하므로 총점을 비교할 수 있다.<br>
+두 번째는 `90`이 `Student`가 아니므로 `"error"`가 return된다.
+
+다만 실제 코드에서는 `"error"` 문자열을 return하는 것보다,<br>
+예외를 발생시키거나 `NotImplemented`를 return하는 방식이 더 자연스럽다.
+
+```python
+def __gt__(self, other):
+    if isinstance(other, Student):
+        return self.get_sum() > other.get_sum()
+    return NotImplemented
+```
+
+정리:
+- special method를 만들면 객체에 연산자 의미를 줄 수 있다
+- 연산 기준은 직접 정해야 한다
+- `Student` 예제에서는 총점을 기준으로 연산/비교했다
+- 비교 대상이 맞는 타입인지 `isinstance()`로 확인할 수 있다
+
+### class variable
+
+객체마다 따로 가지는 값은 instance variable이고,<br>
+class 전체가 공유하는 값은 class variable이다.
+
+```python
+class Student:
+    count = int()
+    students = list()
+```
+
+`count`와 `students`는 class 변수이다.<br>
+모든 `Student` 객체가 같이 공유한다.
+
+```python
+def __init__(self, name, korean, math, english, science):
+    self.name = name
+    self.korean = korean
+    self.math = math
+    self.english = english
+    self.science = science
+
+    Student.count += 1
+    Student.students.append(self)
+```
+
+객체가 생성될 때마다 `Student.count`가 1씩 증가한다.<br>
+그리고 생성된 객체 자신을 `Student.students` list에 추가한다.
+
+```python
+Student("abc", 34, 65, 35, 94)
+Student("gdf", 34, 45, 45, 50)
+
+print(Student.count)
+```
+
+`Student.count`는 class 변수라서 전체 학생 수를 세기에 좋다.
+
+### Student.count와 self.count 차이
+
+```python
+Student.count += 1
+```
+
+이 코드는 class 변수 `count`를 직접 증가시킨다.<br>
+전체 `Student` 객체가 공유하는 값이 바뀐다.
+
+```python
+self.count += 1
+```
+
+이렇게 쓰면 먼저 객체 안에서 `count`를 찾는다.<br>
+없으면 class 변수에서 값을 읽을 수는 있지만, 대입되는 순간 `self.count`라는 instance variable이 따로 생길 수 있다.
+
+정리:
+- 전체 학생 수처럼 공유해야 하는 값 -> `Student.count`
+- 학생 한 명마다 따로 가져야 하는 값 -> `self.name`, `self.korean`
+- class 변수는 `클래스명.변수명`으로 접근하면 의도가 더 분명하다
+
+### classmethod
+
+class variable을 다룰 때는 `@classmethod`를 사용할 수 있다.
+
+```python
+@classmethod
+def print(cls):
+    print(f"등록된 학생 수는 {Student.count}")
+    print("이름\t 국어\t 수학\t 영어\t 과학\t 총점\t 평균")
+
+    for student in Student.students:
+        print(student)
+```
+
+이 method는 객체 하나에 대한 동작이라기보다,<br>
+`Student` class 전체에 대한 동작이다.
+
+```python
+Student.print()
+```
+
+출력 결과
+```text
+등록된 학생 수는 7
+이름	 국어	 수학	 영어	 과학	 총점	 평균
+
+--------------------학생 목록--------------------------
+abc	 34	 65	 35	 94	 228	 57.0
+gdf	 34	 45	 45	 50	 174	 43.5
+wtr	 36	 75	 63	 94	 268	 67.0
+nbd	 47	 65	 85	 70	 267	 66.75
+ujd	 88	 95	 75	 33	 291	 72.75
+efg	 64	 65	 55	 40	 224	 56.0
+dgd	 33	 25	 75	 93	 226	 56.5
+-------------------------------------------------------
+```
+
+주의할 점:
+- `cls`를 받지만 코드 안에서 `Student.count`처럼 직접 class 이름을 써도 동작은 한다
+- 다만 상속까지 생각하면 `cls.count`, `cls.students`를 쓰는 편이 더 확장하기 좋다
+- `print`는 Python 내장 함수 이름이기도 해서 method 이름으로 쓰면 헷갈릴 수 있다
+
+### name mangling
+
+```python
+self.__aa = "secret key"
+```
+
+변수 이름 앞에 `__`를 붙이면 외부에서 바로 접근하기 어렵게 이름이 바뀐다.<br>
+이것을 name mangling이라고 한다.
+
+완전히 보안 처리가 되는 것은 아니고,<br>
+class 내부용 변수라는 의미를 강하게 주는 문법에 가깝다.
+
+정리:
+- `_name` -> 내부용이라는 약한 표시
+- `__name` -> name mangling 적용
+- Python은 완전한 private보다는 약속과 관례를 많이 사용한다
