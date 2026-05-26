@@ -2303,3 +2303,187 @@ getattr(circle, "get_area2", None)
 - `getattr(객체, "이름")` -> 이름으로 attribute 가져오기
 - method를 가져온 뒤 호출하려면 뒤에 `()`를 붙인다
 - `getattr(객체, "없는이름", 기본값)` 형태로 에러 대신 기본값을 받을 수 있다
+
+### class inheritance
+
+상속은 부모 class의 attribute와 method를 자식 class가 이어받는 것이다.
+
+```python
+class Parent:
+    def __init__(self, value):
+        self.value = "테스트"
+        self.value2 = value
+        print("Parent 클래스의 __init__ 메소드가 호출 되었다.")
+
+    def test(self, *args):
+        print("Parent 클래스의 test 메소드 입니다.")
+```
+
+```python
+class Child(Parent):
+    def __init__(self, value):
+        super().__init__(value)
+        print("Child 클래스의 __init__ 메소드가 호출 되었다.")
+
+    def test(self, *args):
+        print("Child 클래스의 test 메소드 입니다.")
+```
+
+`class Child(Parent)`처럼 적으면 `Child`가 `Parent`를 상속받는다.<br>
+자식 class에서 부모의 `__init__`을 실행하고 싶으면 `super().__init__()`을 사용한다.
+
+```python
+child = Child("자식 자료")
+child.test()
+print(child.value)
+print(child.value2)
+```
+
+실행 결과
+```text
+Parent 클래스의 __init__ 메소드가 호출 되었다.
+Child 클래스의 __init__ 메소드가 호출 되었다.
+Child 클래스의 test 메소드 입니다.
+테스트
+자식 자료
+```
+
+`Child` 객체를 만들 때 `Child.__init__`이 실행된다.<br>
+그 안에서 `super().__init__(value)`를 호출했기 때문에 부모의 `__init__`도 실행된다.
+
+그래서 부모 쪽에서 만든 `self.value`, `self.value2`를 자식 객체에서도 사용할 수 있다.
+
+정리:
+- 부모 class -> 공통 기능을 가지고 있음
+- 자식 class -> 부모 기능을 이어받고 필요한 것을 추가/수정
+- `super()` -> 부모 class 쪽 method 호출
+- 부모 `__init__`을 호출하지 않으면 부모에서 초기화한 값이 없을 수 있다
+
+### overriding
+
+부모 class와 자식 class에 같은 이름의 method가 있으면,<br>
+자식 class의 method가 우선 사용된다.
+
+```python
+class Parent:
+    def test(self, *args):
+        print("Parent 클래스의 test 메소드 입니다.")
+
+
+class Child(Parent):
+    def test(self, *args):
+        print("Child 클래스의 test 메소드 입니다.")
+```
+
+```python
+pObject = Parent("부모 자료")
+pObject.test()
+
+child = Child("자식 자료")
+child.test()
+```
+
+실행 결과
+```text
+Parent 클래스의 test 메소드 입니다.
+Child 클래스의 test 메소드 입니다.
+```
+
+이렇게 부모 method를 자식 쪽에서 다시 정의하는 것을 overriding이라고 한다.
+
+주의할 점:
+- Python에서는 같은 이름의 함수를 여러 개 만들어서 구분하는 overloading이 기본적으로 없다
+- 같은 이름으로 다시 정의하면 마지막 정의가 사용된다
+- 상속에서는 부모 method를 자식 method가 덮어쓰는 overriding을 많이 사용한다
+
+### multiple inheritance
+
+Python은 여러 부모 class를 상속받을 수 있다.
+
+```python
+class Person:
+    def __init__(self, b):
+        self.b = b
+
+    def greeting(self):
+        print("안녕하세요!")
+
+
+class University:
+    def __init__(self, a):
+        self.a = a
+
+    def message_credit(self):
+        print("학점관리")
+```
+
+```python
+class Undergraduate(Person, University):
+    def __init__(self):
+        Person.__init__(self, 1)
+        University.__init__(self, 2)
+
+    def study(self):
+        print("공부하기")
+```
+
+`Undergraduate`는 `Person`과 `University`를 둘 다 상속받는다.<br>
+그래서 `greeting()`, `message_credit()` 둘 다 사용할 수 있다.
+
+```python
+james = Undergraduate()
+james.greeting()
+james.message_credit()
+james.study()
+print(james.a, james.b)
+```
+
+실행 결과
+```text
+안녕하세요!
+학점관리
+공부하기
+2 1
+```
+
+`Person.__init__(self, 1)`에서 `self.b = 1`이 만들어진다.<br>
+`University.__init__(self, 2)`에서 `self.a = 2`가 만들어진다.
+
+그래서 `print(james.a, james.b)` 결과가 `2 1`이다.
+
+### MRO
+
+MRO는 Method Resolution Order이다.<br>
+method나 attribute를 찾을 때 어떤 class 순서로 찾는지 보여준다.
+
+```python
+print(Undergraduate.__mro__)
+```
+
+실행 결과
+```text
+(<class '__main__.Undergraduate'>, <class '__main__.Person'>, <class '__main__.University'>, <class 'object'>)
+```
+
+찾는 순서:
+- `Undergraduate`
+- `Person`
+- `University`
+- `object`
+
+다중 상속에서 같은 이름의 method가 여러 부모에 있으면,<br>
+이 MRO 순서에 따라 먼저 찾은 method가 사용된다.
+
+주의할 점:
+- 다중 상속에서는 부모 class의 `__init__` 호출 순서를 신경써야 한다
+- 예제처럼 `Person.__init__(self, 1)` 형태로 직접 호출할 수 있다
+- `super()`도 MRO를 기준으로 움직인다
+- 다중 상속은 편하지만 구조가 복잡해질 수 있어서 조심해서 사용한다
+
+정리:
+- 단일 상속: `class Child(Parent)`
+- 다중 상속: `class Undergraduate(Person, University)`
+- overriding: 부모 method를 자식에서 다시 정의
+- MRO: method를 찾는 class 순서
+- 다중 상속에서 같은 이름이 겹치면 MRO 순서가 중요하다
+
