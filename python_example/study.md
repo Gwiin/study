@@ -2105,3 +2105,201 @@ class 내부용 변수라는 의미를 강하게 주는 문법에 가깝다.
 - `_name` -> 내부용이라는 약한 표시
 - `__name` -> name mangling 적용
 - Python은 완전한 private보다는 약속과 관례를 많이 사용한다
+
+### destructor `__del__`
+
+객체가 생성될 때는 `__init__`이 호출되고,<br>
+객체가 사라질 때는 `__del__`이 호출될 수 있다.
+
+```python
+class Test:
+    def __init__(self, name):
+        self.name = name
+        print(f"{self.name}이 생성 되었습니다.")
+
+    def __del__(self):
+        print(f"{self.name}이 파괴 되었습니다.")
+```
+
+```python
+def main():
+    a = Test("a")
+    b = Test("b")
+    c = Test("c")
+    print(a, b, c)
+    del c
+```
+
+실행 결과
+```text
+a이 생성 되었습니다.
+b이 생성 되었습니다.
+c이 생성 되었습니다.
+<__main__.Test object at 0x...> <__main__.Test object at 0x...> <__main__.Test object at 0x...>
+c이 파괴 되었습니다.
+a이 파괴 되었습니다.
+b이 파괴 되었습니다.
+```
+
+`del c`를 하면 이름 `c`가 객체를 더 이상 가리키지 않는다.<br>
+그 객체를 참조하는 이름이 없어지면 객체가 정리되면서 `__del__`이 호출될 수 있다.
+
+`a`, `b`는 `main()`이 끝날 때 지역변수가 사라지므로 그 뒤에 파괴된다.
+
+주의할 점:
+- `del 변수`는 객체를 바로 삭제한다기보다, 그 이름의 참조를 제거하는 것에 가깝다
+- 객체를 참조하는 이름이 더 있으면 바로 파괴되지 않을 수 있다
+- `__del__` 호출 시점은 항상 직접 제어하기 어렵다
+
+정리:
+- `__init__` -> 객체 초기화
+- `__del__` -> 객체가 정리될 때 호출될 수 있는 special method
+- 파일 닫기 같은 자원 정리는 보통 `with` 문을 더 많이 사용한다
+
+### property
+
+`@property`를 사용하면 method를 instance variable처럼 사용할 수 있다.
+
+```python
+class Circle:
+    def __init__(self, radius):
+        self.__radius = radius
+
+    @property
+    def radius(self):
+        return self.__radius
+```
+
+겉으로 사용할 때는 함수 호출처럼 `circle.radius()`가 아니라,<br>
+변수 접근처럼 `circle.radius`로 사용한다.
+
+```python
+circle = Circle(10)
+print(circle.radius)
+```
+
+### getter, setter
+
+```python
+@radius.getter
+def radius(self):
+    print("getter")
+    return self.__radius
+
+@radius.setter
+def radius(self, value):
+    print("setter")
+    if isinstance(value, int) and value > 0:
+        self.__radius = value
+    else:
+        print("양의 정수만 넣으시오.")
+```
+
+`circle.radius`처럼 값을 읽으면 getter가 호출된다.<br>
+`circle.radius = 20`처럼 값을 넣으면 setter가 호출된다.
+
+```python
+circle = Circle(10)
+print(circle.radius)
+circle.radius = 20
+circle.radius = 3.14
+circle.radius = -5
+print(circle.get_area())
+```
+
+실행 결과
+```text
+getter
+10
+setter
+setter
+양의 정수만 넣으시오.
+setter
+양의 정수만 넣으시오.
+1256.6370614359173
+```
+
+처음 `print(circle.radius)`에서 getter가 호출된다.<br>
+`circle.radius = 20`은 양의 정수라서 radius 값이 20으로 바뀐다.
+
+`3.14`는 float라서 실패한다.<br>
+`-5`는 int이지만 양수가 아니라서 실패한다.
+
+그래서 마지막 넓이는 반지름 20 기준으로 계산된다.
+
+```python
+math.pi * (20 ** 2)
+```
+
+정리:
+- 값을 읽을 때 -> getter
+- 값을 대입할 때 -> setter
+- setter에서 값 검사를 할 수 있다
+- 잘못된 값이면 객체 내부 값을 바꾸지 않게 막을 수 있다
+
+### `__radius`와 `__dict__`
+
+```python
+self.__radius = radius
+```
+
+`__radius`처럼 앞에 `__`가 붙으면 name mangling이 적용된다.<br>
+실제로 객체 내부 dict를 보면 이름이 바뀌어 있다.
+
+```python
+print(circle.__dict__)
+print(vars(circle))
+```
+
+실행 결과
+```text
+{'_Circle__radius': 20}
+{'_Circle__radius': 20}
+```
+
+`__radius`가 그대로 저장되는 것이 아니라 `_Circle__radius`라는 이름으로 저장된다.
+
+`vars(circle)`도 객체의 `__dict__`를 보여주는 것과 비슷하다.
+
+정리:
+- `circle.__dict__` -> 객체가 가진 instance variable 확인
+- `vars(circle)` -> 객체의 변수 dict 확인
+- `__radius` -> 내부적으로 `_Circle__radius` 형태로 바뀜
+
+### getattr
+
+`getattr()`은 객체에서 이름으로 attribute를 가져온다.
+
+```python
+print(getattr(circle, "get_area"))
+print(getattr(circle, "get_area")())
+print(getattr(circle, "get_area2", None))
+```
+
+실행 결과
+```text
+<bound method Circle.get_area of <__main__.Circle object at 0x...>>
+1256.6370614359173
+None
+```
+
+`getattr(circle, "get_area")`는 method 자체를 가져온다.<br>
+아직 호출한 것은 아니기 때문에 bound method라고 출력된다.
+
+```python
+getattr(circle, "get_area")()
+```
+
+뒤에 `()`를 붙이면 가져온 method를 호출한다.
+
+```python
+getattr(circle, "get_area2", None)
+```
+
+없는 이름을 가져오려고 할 때 세 번째 값으로 기본값을 줄 수 있다.<br>
+그래서 에러가 아니라 `None`이 나온다.
+
+정리:
+- `getattr(객체, "이름")` -> 이름으로 attribute 가져오기
+- method를 가져온 뒤 호출하려면 뒤에 `()`를 붙인다
+- `getattr(객체, "없는이름", 기본값)` 형태로 에러 대신 기본값을 받을 수 있다
