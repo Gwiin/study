@@ -2753,3 +2753,235 @@ JSON과 YAML 비교:
 - YAML은 사람이 읽고 쓰기 편해서 설정 파일에 자주 사용한다
 - Python으로 읽으면 둘 다 dict/list 같은 객체로 다룰 수 있다
 
+## pickle serialization
+
+`pickle`은 Python 객체를 파일에 저장하고 다시 불러올 때 사용할 수 있다.<br>
+JSON/YAML은 dict, list, str 같은 데이터 교환용 느낌이고,<br>
+pickle은 Python 객체 자체를 저장하는 느낌에 가깝다.
+
+```python
+import random
+from pathlib import Path
+import pickle
+```
+
+`student_model.py`에서는 `Student` 객체 100개를 만들고 list에 담는다.
+
+```python
+students = [
+    Student(
+        random.choice(hanguls) + "".join(random.choices(hanguls2, k=2)),
+        random.randint(65, 100),
+        random.randint(65, 100),
+        random.randint(65, 100),
+        random.randint(65, 100)
+    )
+    for _ in range(100)
+]
+```
+
+list comprehension으로 `Student` 객체를 100개 생성한다.<br>
+`random.choice()`는 하나를 고르고, `random.choices(..., k=2)`는 여러 개를 뽑는다.
+
+```python
+with path.open("wb") as f:
+    pickle.dump(students, f)
+```
+
+`pickle.dump(students, f)`는 `students` list 전체를 파일에 저장한다.<br>
+`"wb"`는 write binary 모드이다.
+
+정리:
+- `pickle.dump(객체, 파일)` -> 객체를 파일에 저장
+- pickle은 binary 형태로 저장하므로 `"wb"` 사용
+- list 안에 들어있는 `Student` 객체들도 같이 저장된다
+
+### pickle load
+
+저장한 pickle 파일은 `pickle.load()`로 다시 읽을 수 있다.
+
+```python
+from pathlib import Path
+import pickle
+from student_model import Student
+
+
+def main():
+    students = []
+    path = Path(r"/home/hrd_1_3/study/python_example/data/test.pickle")
+
+    with path.open("rb") as f:
+        students = pickle.load(f)
+
+    Student.students = students
+    Student.print()
+```
+
+`"rb"`는 read binary 모드이다.<br>
+저장할 때 `pickle.dump(students, f)`로 list 전체를 한 번에 저장했으므로,<br>
+읽을 때도 `pickle.load(f)` 한 번으로 list 전체를 가져온다.
+
+주의할 점:
+```python
+while data := pickle.load(f):
+    students.append(data)
+```
+
+이 방식은 객체를 여러 번 나눠서 dump했을 때 생각해볼 수 있다.<br>
+지금 파일은 list 하나를 통째로 dump했기 때문에 while로 반복해서 읽는 구조와 맞지 않는다.
+
+파일 끝까지 읽으면 `EOFError`가 날 수 있어서 이전 코드에서는 이렇게 처리하려고 했다.
+
+```python
+try:
+    while data := pickle.load(f):
+        students.append(data)
+except EOFError:
+    pass
+```
+
+하지만 현재 예제에서는 list 하나를 저장했으므로 아래처럼 읽는 것이 더 단순하다.
+
+```python
+students = pickle.load(f)
+```
+
+### pickle load와 class variable
+
+로드한 뒤에 이렇게 넣어준다.
+
+```python
+Student.students = students
+Student.print()
+```
+
+pickle로 객체를 복원할 때는 `Student.__init__()`이 다시 실행되지 않는다.<br>
+그래서 `__init__` 안에 있던 아래 코드도 자동으로 다시 실행되지 않는다.
+
+```python
+Student.count += 1
+Student.students.append(self)
+```
+
+그래서 로드한 학생 목록을 `Student.students`에 직접 넣어준 것이다.
+
+실행 결과에서 학생 목록은 나오지만,
+
+```text
+등록된 학생 수는 0
+```
+
+처럼 count가 0으로 나올 수 있다.
+
+이유는 `Student.students = students`만 했고,<br>
+`Student.count`는 다시 설정하지 않았기 때문이다.
+
+```python
+Student.students = students
+Student.count = len(students)
+```
+
+이렇게 하면 학생 수까지 맞출 수 있다.
+
+정리:
+- pickle load는 저장된 객체를 복원한다
+- 복원할 때 `__init__`이 다시 호출되지 않는다
+- class variable은 필요하면 직접 다시 맞춰줘야 한다
+- `Student.students = students` -> 목록 복원
+- `Student.count = len(students)` -> 개수 복원
+
+주의할 점:
+- pickle은 Python 전용에 가깝다
+- 모르는 사람이 만든 pickle 파일은 함부로 열면 위험할 수 있다
+- class가 저장될 때의 module/class 이름과 load할 때의 구조가 맞아야 한다
+
+## try except
+
+예외가 날 수 있는 코드는 `try` 안에 넣고,<br>
+예외가 발생했을 때 처리할 코드는 `except`에 적는다.
+
+```python
+import math
+
+
+def main():
+    user_input = input("정수 입력")
+    try:
+        number_input = int(user_input)
+        if number_input < 0:
+            raise NagativeError
+        print("원의 반지름: ", number_input)
+        print("원의 둘레: ", 2 * math.pi * number_input)
+        print("원의 넓이: ", math.pi * number_input * number_input)
+    except ValueError as e:
+        print("정수를 입력하지 않았습니다.\n", e)
+    except NagativeError as e:
+        print("양의 정수를 입력하세요.\n", e)
+    finally:
+        print("--------------- 프로그램이 끝났습니다. ------------------")
+```
+
+`input()`은 무조건 str을 return한다.<br>
+그래서 숫자로 계산하려면 `int(user_input)`처럼 변환해야 한다.
+
+정상 입력
+```text
+정수 입력원의 반지름:  10
+원의 둘레:  62.83185307179586
+원의 넓이:  314.1592653589793
+--------------- 프로그램이 끝났습니다. ------------------
+```
+
+문자 입력
+```text
+정수 입력정수를 입력하지 않았습니다.
+ invalid literal for int() with base 10: 'abc'
+--------------- 프로그램이 끝났습니다. ------------------
+```
+
+`abc`는 정수로 바꿀 수 없어서 `ValueError`가 발생한다.<br>
+그래서 `except ValueError as e:` 부분이 실행된다.
+
+### custom exception
+
+직접 예외 class를 만들 수도 있다.
+
+```python
+class NagativeError(Exception):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.args = ["이것은 내가 만든 네가티브 에러이다."]
+```
+
+`Exception`을 상속받으면 사용자 정의 예외를 만들 수 있다.<br>
+예제에서는 음수가 들어오면 직접 예외를 발생시킨다.
+
+```python
+if number_input < 0:
+    raise NagativeError
+```
+
+음수 입력
+```text
+정수 입력양의 정수를 입력하세요.
+ 이것은 내가 만든 네가티브 에러이다.
+--------------- 프로그램이 끝났습니다. ------------------
+```
+
+`raise`는 예외를 직접 발생시키는 문법이다.<br>
+음수는 `int()` 변환 자체는 가능하지만, 프로그램 규칙상 허용하지 않기 때문에 직접 예외를 발생시킨다.
+
+정리:
+- `try` -> 예외가 날 수 있는 코드
+- `except ValueError as e` -> ValueError 처리
+- `raise` -> 예외를 직접 발생
+- `finally` -> 예외 발생 여부와 상관없이 마지막에 실행
+- custom exception은 `Exception`을 상속해서 만든다
+
+주의할 점:
+- `NagativeError`는 철자가 `NegativeError`가 더 자연스럽다
+- `raise NagativeError`보다 `raise NagativeError()`처럼 객체를 만들어 던지는 형태가 더 명확하다
+- 모든 예외를 `except Exception`으로 크게 잡으면 원인을 놓칠 수 있다
+
+
+
