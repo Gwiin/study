@@ -2487,3 +2487,64 @@ print(Undergraduate.__mro__)
 - MRO: method를 찾는 class 순서
 - 다중 상속에서 같은 이름이 겹치면 MRO 순서가 중요하다
 
+### dataclass
+
+데이터를 담는 class를 만들 때 `dataclass`를 사용할 수 있다.<br>
+반복해서 작성하던 `__init__`, `__repr__` 같은 코드를 자동으로 만들어준다.
+
+```python
+from dataclasses import dataclass
+
+
+@dataclass
+class Student:
+    name: str
+    korean: int
+    math: int
+    english: int
+    science: int
+
+    def get_sum(self):
+        return self.korean + self.math + self.english + self.science
+```
+
+일반 class에서는 보통 이렇게 직접 적었다.
+
+```python
+def __init__(self, name, korean, math, english, science):
+    self.name = name
+    self.korean = korean
+    self.math = math
+    self.english = english
+    self.science = science
+```
+
+`@dataclass`를 쓰면 위와 같은 초기화 코드를 직접 안 적어도 된다.<br>
+class 안에 type hint로 field를 적어두면 자동으로 `__init__`이 만들어진다.
+
+```python
+student = Student("abc", 34, 65, 35, 94)
+print(student)
+print(student.get_sum())
+```
+
+실행 결과
+```text
+Student(name='abc', korean=34, math=65, english=35, science=94)
+228
+```
+
+`print(student)`를 했을 때도 주소가 아니라 내용이 보기 좋게 나온다.<br>
+이것은 dataclass가 `__repr__`도 자동으로 만들어주기 때문이다.
+
+정리:
+- `@dataclass` -> 데이터 저장용 class를 짧게 만들 수 있음
+- type hint로 field를 적으면 `__init__`이 자동 생성된다
+- `print()` 했을 때 보기 좋은 `__repr__`도 자동 생성된다
+- `get_sum()` 같은 일반 method는 그대로 추가할 수 있다
+- 점수 데이터처럼 단순히 값을 묶어서 다룰 때 편하다
+
+주의할 점:
+- `dataclass`를 쓰려면 `from dataclasses import dataclass`가 필요하다
+- type hint를 적어야 field로 인식된다
+- 복잡한 동작보다 데이터 저장이 중심인 class에 잘 맞는다
