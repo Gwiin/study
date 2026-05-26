@@ -2983,5 +2983,92 @@ if number_input < 0:
 - `raise NagativeError`보다 `raise NagativeError()`처럼 객체를 만들어 던지는 형태가 더 명확하다
 - 모든 예외를 `except Exception`으로 크게 잡으면 원인을 놓칠 수 있다
 
+## main argument
+
+C에서는 main 함수에서 실행 인자를 받을 때 이런 형태를 사용한다.
+
+```c
+int main(int argc, char *argv[])
+```
+
+python에서는 `sys.argv`로 실행 인자를 확인할 수 있다.
+
+```python
+import sys
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("사용법: 로드할 파일을 명시하시오!")
+        sys.exit()
+
+    print("정상작동")
+```
+
+`sys.argv`는 list이다.<br>
+첫 번째 값 `sys.argv[0]`에는 실행한 파일 이름이 들어간다.
+
+```python
+# print(sys.argv[0])
+# print(sys.argv[1])
+```
+
+명령행에서 파일 뒤에 적은 값들이 그 다음 index에 들어간다.
+
+```bash
+python3 basic/a103_main_argument.py abc 123 hello
+```
+
+이런 식으로 실행하면 대략 이런 구조가 된다.
+
+```python
+sys.argv[0] # basic/a103_main_argument.py
+sys.argv[1] # abc
+sys.argv[2] # 123
+sys.argv[3] # hello
+```
+
+주의할 점:
+- command line argument는 기본적으로 str이다
+- 숫자로 쓰고 싶으면 `int(sys.argv[1])`처럼 변환해야 한다
+- 인자가 없는 상태에서 `sys.argv[1]`에 접근하면 index error가 날 수 있다
+
+그래서 먼저 길이를 확인한다.
+
+```python
+if len(sys.argv) < 2:
+    print("사용법: 로드할 파일을 명시하시오!")
+    sys.exit()
+```
+
+인자가 없으면 사용법을 출력하고 `sys.exit()`로 프로그램을 끝낸다.
+
+인자 없이 실행
+```bash
+python3 basic/a103_main_argument.py
+```
+
+실행 결과
+```text
+사용법: 로드할 파일을 명시하시오!
+```
+
+인자를 넣고 실행
+```bash
+python3 basic/a103_main_argument.py abc 123 hello
+```
+
+실행 결과
+```text
+정상작동
+```
+
+정리:
+- `sys.argv` -> command line argument list
+- `sys.argv[0]` -> 실행한 script 이름
+- `sys.argv[1]`부터 사용자가 넘긴 argument
+- `len(sys.argv)`로 argument 개수를 확인한다
+- `sys.exit()`는 프로그램을 종료할 때 사용한다
+- argument가 많아지고 option 처리가 필요하면 `argparse` library를 사용하면 좋다
 
 
