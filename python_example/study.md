@@ -1569,3 +1569,246 @@ uv build --no-sources
 ```
 
 
+## 객체지향(object oriented programming)
+
+클래스, 객체
+- 클래스는 설계도
+- 객체는 설계도로 만든 인스턴스
+
+c++
+>class 클래스명 { ... }<br>
+>객체를 만들면 this로 자기 자신을 가리킬 수 있음<br>
+
+python
+>class 클래스명:<br>
+>def 메서드(self):<br>
+
+```python
+class Student:
+    def __init__(self, name: str, age: int):
+        self.name = name
+        self.age = age
+
+    def introduce(self):
+        print(f"이름: {self.name}, 나이: {self.age}")
+
+
+student1 = Student("kim", 20)
+student1.introduce()
+```
+
+출력 결과
+```text
+이름: kim, 나이: 20
+```
+
+`Student`가 클래스이고 `student1`이 객체이다.<br>
+`Student("kim", 20)`처럼 호출하면 객체가 생성된다.
+
+### special method
+
+special method는 Python이 특정 상황에서 자동으로 호출하는 메서드이다.<br>
+이름 앞뒤에 `__`가 붙어서 dunder method라고도 한다.
+
+```python
+class Student:
+    def __init__(self, name: str):
+        self.name = name
+```
+
+`__init__`은 객체가 생성된 뒤 초기값을 넣을 때 사용한다.<br>
+생성자 느낌으로 이해하면 된다.
+
+주의할 점
+- `__init__`은 객체를 직접 만드는 함수라기보다, 만들어진 객체를 초기화하는 메서드이다
+- return 값을 직접 쓰지 않는다
+- `self.name = name`처럼 객체 안에 값을 저장한다
+
+### self
+
+`self`는 메서드 내부에서 현재 객체 자체를 가리키는 이름이다.<br>
+C++의 `this`와 비슷하게 생각할 수 있다.
+
+```python
+class Counter:
+    def __init__(self):
+        self.count = 0
+
+    def up(self):
+        self.count += 1
+        print(self.count)
+
+
+c1 = Counter()
+c2 = Counter()
+
+c1.up()
+c1.up()
+c2.up()
+```
+
+출력 결과
+```text
+1
+2
+1
+```
+
+`c1`과 `c2`는 서로 다른 객체이다.<br>
+그래서 `self.count`도 객체마다 따로 관리된다.
+
+정리:
+- `self`는 현재 객체
+- 메서드를 정의할 때 첫 번째 매개변수로 적는다
+- 메서드를 호출할 때는 `c1.up()`처럼 쓰고, `self`는 자동으로 전달된다
+
+### cls
+
+`cls`는 class 자체를 가리킬 때 사용하는 이름이다.<br>
+보통 `@classmethod`와 같이 사용한다.
+
+```python
+class Student:
+    school = "python school"
+
+    def __init__(self, name: str):
+        self.name = name
+
+    @classmethod
+    def print_school(cls):
+        print(cls.school)
+
+
+Student.print_school()
+```
+
+출력 결과
+```text
+python school
+```
+
+`self`는 객체를 가리키고, `cls`는 클래스를 가리킨다.
+
+정리:
+- class -> 객체를 만들기 위한 설계도
+- object(instance) -> class로 실제 만든 것
+- `__init__` -> 객체 초기화에 많이 사용
+- `self` -> 현재 객체
+- `cls` -> 현재 class
+- 객체마다 따로 가져야 하는 값은 `self.변수명`
+- class 전체가 공유하는 값은 class 변수로 둘 수 있다
+
+### Student class 예제
+
+`Student` class 안에 학생 이름과 점수를 저장하고,<br>
+총합과 평균을 구하는 메서드를 추가했다.
+
+```python
+class Student:
+    def __init__(self, name, korean, math, english, science):
+        self.name = name
+        self.korean = korean
+        self.math = math
+        self.english = english
+        self.science = science
+
+    def get_sum(self):
+        return self.korean + self.math + self.english + self.science
+
+    def get_average(self):
+        return self.get_sum() / 4
+
+    def to_string(self):
+        return f"{self.name}\t {self.korean}\t {self.math}\t {self.english}\t {self.science}\t {self.get_sum()}\t {self.get_average()}"
+
+    def __repr__(self):
+        return f"{self.name}\t {self.korean}\t {self.math}\t {self.english}\t {self.science}\t {self.get_sum()}\t {self.get_average()}"
+```
+
+`get_sum()`은 객체 안에 저장된 점수를 더해서 return한다.<br>
+`get_average()`는 `self.get_sum()`을 다시 사용해서 평균을 구한다.
+
+```python
+def get_average(self):
+    return self.get_sum() / 4
+```
+
+메서드 안에서 같은 객체의 다른 메서드를 부를 때도 `self.메서드명()`으로 호출한다.
+
+### 객체 리스트
+
+```python
+students = [
+    Student('abc', 34, 65, 35, 94),
+    Student('gdf', 34, 45, 45, 50),
+    Student('wtr', 36, 75, 63, 94),
+]
+```
+
+`students`는 list이고, list 안에 `Student` 객체들이 들어간다.
+
+주의할 점
+```python
+print(Student[0])
+```
+
+`Student`는 class 자체이기 때문에 index로 접근할 수 없다.<br>
+첫 번째 학생 객체를 가져오려면 list 이름인 `students`를 사용해야 한다.
+
+```python
+print(students[0])
+```
+
+정리:
+- `Student` -> class
+- `students` -> Student 객체들을 담은 list
+- `students[0]` -> 첫 번째 Student 객체
+- `students[0].name` -> 첫 번째 Student 객체의 name
+
+### 객체 출력과 `__repr__`
+
+객체를 그냥 출력하면 원래는 주소처럼 보인다.
+
+```python
+print(students[0])
+```
+
+기본 출력 느낌
+```text
+<__main__.Student object at 0x...>
+```
+
+그래서 객체를 출력했을 때 어떤 문자열로 보일지 정하려면 special method를 사용할 수 있다.
+
+```python
+def __repr__(self):
+    return f"{self.name}\t {self.korean}\t {self.math}\t {self.english}\t {self.science}\t {self.get_sum()}\t {self.get_average()}"
+```
+
+`print(student)`를 하면 내부적으로 문자열 표현이 필요하다.<br>
+이때 `__repr__`이 정의되어 있으면 이 return 값이 출력된다.
+
+```python
+print("이름\t 국어\t 수학\t 영어\t 과학\t 총합\t 평균")
+for student in students:
+    print(student)
+```
+
+출력 결과
+```text
+이름	 국어	 수학	 영어	 과학	 총합	 평균
+abc	 34	 65	 35	 94	 228	 57.0
+gdf	 34	 45	 45	 50	 174	 43.5
+wtr	 36	 75	 63	 94	 268	 67.0
+nbd	 47	 65	 85	 70	 267	 66.75
+ujd	 88	 95	 75	 33	 291	 72.75
+efg	 64	 65	 55	 40	 224	 56.0
+dgd	 33	 25	 75	 93	 226	 56.5
+```
+
+정리:
+- 점수 데이터는 `self.korean` 같은 instance variable에 저장한다
+- 계산은 `get_sum()`, `get_average()` 같은 method로 분리할 수 있다
+- 객체 여러 개는 list에 담아서 for문으로 순회하면 된다
+- 객체를 보기 좋게 출력하고 싶으면 `__repr__` 또는 `__str__`을 사용할 수 있다
+- 사용자가 보기 위한 출력은 보통 `__str__`, 개발자가 확인하기 위한 표현은 보통 `__repr__` 느낌으로 사용한다
