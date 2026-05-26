@@ -85,7 +85,7 @@
 - 자연어 질의 채팅창
 - AI 요약 및 보고서 생성 결과
 
-![AI 생활안전 대시보드 예시](assets/dashboard-example.png)
+![AI 생활안전 대시보드 예시](asset/dashboard-example.png)
 
 ### 5.5 IoT 제어 시뮬레이션
 
@@ -209,7 +209,7 @@ AI Agent 처리 흐름:
 - `YOLO`: 사람, 반려동물, 사물 등 객체 탐지
 - `VLM`: 장면 이해, 행동 설명, 이상상황 판단 보조
 
-![CCTV 행동 감지 예시](assets/behavior-detection-example.png)
+![CCTV 행동 감지 예시](asset/behavior-detection-example.png)
 
 ### 7.4 Database
 
@@ -274,7 +274,7 @@ Next.js 웹 대시보드
 알림 / 보고서 / IoT 제어
 ```
 
-![시스템 아키텍처 예시](assets/architecture-infographic.png)
+![시스템 아키텍처 예시](asset/architecture-infographic.png)
 
 ## 9. MVP 구현 범위
 
