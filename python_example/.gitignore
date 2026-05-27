@@ -25,6 +25,7 @@ dist/
 *.dylib
 *.o
 *.obj
+target/
 
 # Local runtime outputs
 *.log
@@ -33,4 +34,3 @@ dist/
 # OS and editor noise
 .DS_Store
 Thumbs.db
-

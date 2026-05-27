@@ -4728,3 +4728,198 @@ C++ extension module은 내부 구현이 `.so` 파일이라 Python 코드처럼 
 - C++ extension build 결과도 `.so` 파일로 만들어질 수 있다
 - `.so`, `build/`, `*.egg-info/`는 build output이라 GitHub에 보통 올리지 않는다
 - `.cpp`, `.pyi`, `py.typed`, `setup.py`, `pyproject.toml`은 source 쪽 파일이다
+
+---
+
+## Rust binding, PyO3
+
+Rust로 작성한 함수를 Python에서 사용하고 싶을 때 `PyO3`를 사용할 수 있다.<br>
+빌드는 보통 `maturin`을 사용한다.
+
+폴더 구조
+```text
+native_extension/Rust_binding/pyo3_hello/
+├── Cargo.toml
+├── pyproject.toml
+├── rust_hello.pyi
+├── py.typed
+└── src/
+    └── lib.rs
+```
+
+역할:
+- `src/lib.rs` -> Rust 함수와 Python module 등록 코드
+- `Cargo.toml` -> Rust crate 설정
+- `pyproject.toml` -> Python build backend 설정
+- `rust_hello.pyi` -> type hint용 stub file
+- `py.typed` -> type 정보를 제공한다는 표시
+
+## Rust 코드
+
+```rust
+use pyo3::prelude::*;
+```
+
+PyO3에서 자주 쓰는 타입과 macro를 가져온다.
+
+```rust
+#[pyfunction]
+fn make_greeting(name: &str) -> String {
+    format!("hello, {name} from Rust!")
+}
+```
+
+`#[pyfunction]`을 붙이면 Python에 공개할 수 있는 함수가 된다.
+
+```rust
+fn make_greeting(name: &str) -> String
+```
+
+Python에서 문자열을 넘기면 Rust에서는 `&str`로 받을 수 있다.<br>
+반환값은 Rust `String`이고 Python에서는 `str`처럼 받는다.
+
+```rust
+#[pyfunction]
+fn add(left: i64, right: i64) -> i64 {
+    left + right
+}
+```
+
+정수 두 개를 받아서 더하는 함수이다.<br>
+Python의 `int` 값이 Rust의 `i64`로 변환되어 들어온다.
+
+## pymodule
+
+```rust
+#[pymodule]
+fn rust_hello(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(make_greeting, module)?)?;
+    module.add_function(wrap_pyfunction!(add, module)?)?;
+    Ok(())
+}
+```
+
+`#[pymodule]`은 Python module을 정의하는 부분이다.<br>
+함수 이름 `rust_hello`가 Python에서 import할 module 이름과 맞아야 한다.
+
+```python
+import rust_hello
+```
+
+`module.add_function()`으로 Python에 공개할 함수를 module에 등록한다.
+
+```rust
+wrap_pyfunction!(make_greeting, module)?
+```
+
+Rust 함수를 Python에서 호출 가능한 함수로 감싸는 macro이다.
+
+```rust
+PyResult<()>
+```
+
+Python 쪽으로 성공/실패 결과를 전달하기 위한 PyO3 결과 타입이다.
+
+```rust
+Ok(())
+```
+
+module 등록이 정상적으로 끝났다는 뜻이다.
+
+## Cargo.toml
+
+```toml
+[package]
+name = "rust_hello"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "rust_hello"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module"] }
+```
+
+`crate-type = ["cdylib"]`는 Python에서 import 가능한 동적 library 형태로 빌드하기 위한 설정이다.
+
+```toml
+pyo3 = { version = "0.22", features = ["extension-module"] }
+```
+
+PyO3를 Python extension module용으로 사용한다는 뜻이다.
+
+## pyproject.toml, maturin
+
+```toml
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "rust-hello"
+version = "0.1.0"
+requires-python = ">=3.9"
+```
+
+`maturin`은 Rust/PyO3 프로젝트를 Python package로 빌드해주는 도구이다.
+
+빌드할 때 사용한 명령
+```bash
+python3 -m pip install --user maturin
+python3 -m maturin build --release
+python3 -m pip install --user target/wheels/rust_hello-0.1.0-cp310-cp310-manylinux_2_34_x86_64.whl
+```
+
+Rust compiler와 cargo도 필요하다.
+
+```text
+rustc
+cargo
+```
+
+빌드 결과로 `target/` 폴더와 wheel 파일이 만들어진다.<br>
+`target/`은 build output이라 GitHub에 보통 올리지 않는다.
+
+## 실행 예제
+
+```python
+import rust_hello
+
+def main():
+    print(rust_hello.make_greeting("Python"))
+    print(rust_hello.add(10,20))
+```
+
+실행 결과
+```text
+hello, Python from Rust!
+30
+```
+
+`rust_hello.make_greeting("Python")`은 Rust 함수 `make_greeting()`을 호출한다.<br>
+`rust_hello.add(10, 20)`은 Rust 함수 `add()`를 호출한다.
+
+## rust_hello.pyi
+
+```python
+def make_greeting(name: str) -> str: ...
+
+
+def add(left: int, right: int) -> int: ...
+```
+
+C/C++ extension과 마찬가지로 Rust extension도 실제 구현은 binary module 안에 있다.<br>
+그래서 `.pyi` 파일에 Python에서 보이는 함수 모양을 적어두면 editor 자동완성과 type check에 도움이 된다.
+
+정리:
+- PyO3는 Rust 코드를 Python extension module로 연결해준다
+- `#[pyfunction]`은 Python에 공개할 Rust 함수에 붙인다
+- `#[pymodule]`은 Python module 초기화/등록 함수에 붙인다
+- `module.add_function()`으로 Python module에 함수를 등록한다
+- `Cargo.toml`은 Rust crate 설정 파일이다
+- `pyproject.toml`은 Python build 설정 파일이다
+- `maturin`은 Rust/PyO3 package를 빌드하는 도구이다
+- Rust binding도 빌드 후 Python에서는 `import rust_hello`처럼 사용할 수 있다
+- `target/`과 wheel은 build output이고, `src/lib.rs`, `Cargo.toml`, `pyproject.toml`, `.pyi`, `py.typed`는 source 쪽 파일이다
