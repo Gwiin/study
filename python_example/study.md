@@ -4527,3 +4527,204 @@ hello, son!
 - `.so`는 빌드 결과물이고, `.c`, `.py`, `.pyi`, `setup.py`는 source file이다
 - Python wrapper를 두면 C 함수를 더 Python스럽게 사용할 수 있다
 
+---
+
+## C++ binding, pybind11
+
+앞에서는 `Python.h`를 직접 사용해서 C extension을 만들었다.<br>
+C++에서는 `pybind11`을 사용하면 C++ 함수와 class를 Python에 더 간단하게 연결할 수 있다.
+
+폴더 구조
+```text
+native_extension/Cpp_binding/pybind11_hello/
+├── pyproject.toml
+├── setup.py
+├── cpp_hello.pyi
+├── py.typed
+└── src/
+    └── cpp_hello.cpp
+```
+
+역할:
+- `cpp_hello.cpp` -> C++로 작성한 함수/class와 pybind11 binding 코드
+- `setup.py` -> C++ extension build 설정
+- `pyproject.toml` -> build에 필요한 package 설정
+- `cpp_hello.pyi` -> type hint용 stub file
+- `py.typed` -> 이 package가 type hint를 제공한다는 표시
+
+## pybind11 C++ 코드
+
+```cpp
+#include <pybind11/pybind11.h>
+#include <string>
+
+namespace py = pybind11;
+```
+
+`pybind11/pybind11.h`를 include하면 pybind11 기능을 사용할 수 있다.<br>
+`namespace py = pybind11;`는 이름을 짧게 쓰기 위한 alias이다.
+
+```cpp
+class Hello {
+public:
+    explicit Hello(std::string name) : name_(std::move(name)){}
+
+    std::string greet() const {
+        return "hello, " + name_ + " from C++!";
+    }
+
+private:
+    std::string name_;
+};
+```
+
+C++ class `Hello`를 만든다.<br>
+생성자에서 이름을 받고, `greet()`에서 문자열을 만들어 반환한다.
+
+```cpp
+int add(int left, int right){
+    return left + right;
+}
+```
+
+일반 C++ 함수도 Python 함수처럼 공개할 수 있다.
+
+## PYBIND11_MODULE
+
+```cpp
+PYBIND11_MODULE(cpp_hello, module){
+    module.doc() = "Small pybind11 example module";
+    module.def("add", &add, "Add two integers");
+
+    py::class_<Hello>(module, "Hello")
+        .def(py::init<std::string>())
+        .def("greet", &Hello::greet);
+}
+```
+
+`PYBIND11_MODULE(cpp_hello, module)`은 Python module을 정의하는 부분이다.<br>
+여기서 `cpp_hello`가 Python에서 import할 module 이름이 된다.
+
+```python
+import cpp_hello
+```
+
+`module.def()`는 C++ 함수를 Python 함수로 등록한다.
+
+```cpp
+module.def("add", &add, "Add two integers");
+```
+
+Python에서는 아래처럼 호출한다.
+
+```python
+cpp_hello.add(45, 34)
+```
+
+`py::class_<Hello>`는 C++ class를 Python class처럼 사용할 수 있게 등록한다.
+
+```cpp
+py::class_<Hello>(module, "Hello")
+    .def(py::init<std::string>())
+    .def("greet", &Hello::greet);
+```
+
+의미:
+- Python 이름은 `"Hello"`
+- 생성자는 `std::string` 하나를 받음
+- `greet()` method를 Python에 공개함
+
+## setup.py, pyproject.toml
+
+```python
+from setuptools import Extension, setup
+import pybind11
+
+setup(
+    name="cpp_hello",
+    version="0.1.0",
+    ext_modules=[
+        Extension(
+            "cpp_hello",
+            ["src/cpp_hello.cpp"],
+            include_dirs=[pybind11.get_include()],
+            language="c++",
+        )
+    ],
+    data_files=[("", ["cpp_hello.pyi", "py.typed"])],
+)
+```
+
+`include_dirs=[pybind11.get_include()]`는 pybind11 header 경로를 compiler에게 알려준다.
+
+```python
+language="c++"
+```
+
+C가 아니라 C++ extension으로 빌드하겠다는 뜻이다.
+
+```toml
+[build-system]
+requires = ["setuptools>=61", "wheel", "pybind11>=2.10"]
+build-backend = "setuptools.build_meta"
+```
+
+`pyproject.toml`에는 build할 때 필요한 package가 들어간다.<br>
+여기서는 `setuptools`, `wheel`, `pybind11`이 필요하다.
+
+설치할 때 사용한 명령
+```bash
+python3 -m pip install pybind11
+python3 setup.py build_ext --inplace
+python3 -m pip install --user .
+```
+
+`pip install -e .`가 권한 문제로 실패할 수 있어서 이번에는 `--user` 설치를 사용했다.
+
+## 실행 예제
+
+```python
+import cpp_hello
+
+def main():
+    print(cpp_hello.add(45,34))
+    a = cpp_hello.Hello("son")
+    print(a.greet())
+```
+
+실행 결과
+```text
+79
+hello, son from C++!
+```
+
+`cpp_hello.add(45, 34)`는 C++ 함수 `add()`를 호출한다.<br>
+`cpp_hello.Hello("son")`은 C++ class `Hello` 객체를 Python에서 만든다.
+
+## .pyi, py.typed
+
+```python
+class Hello:
+    def __init__(self, name: str) -> None: ...
+    def greet(self) -> str: ...
+
+
+def add(left: int, right: int) -> int: ...
+```
+
+`cpp_hello.pyi`는 editor와 type checker가 참고하는 파일이다.<br>
+C++ extension module은 내부 구현이 `.so` 파일이라 Python 코드처럼 타입을 바로 알기 어렵다.
+
+그래서 `.pyi`에 함수와 class 모양을 적어두면 자동완성이나 타입 체크에 도움이 된다.
+
+`py.typed`는 package가 type 정보를 제공한다는 표시 파일이다.
+
+정리:
+- pybind11은 C++ 함수/class를 Python module로 쉽게 연결해준다
+- `PYBIND11_MODULE`에서 Python module 이름과 공개할 함수를 등록한다
+- `module.def()`는 C++ 함수를 Python 함수로 공개한다
+- `py::class_`는 C++ class를 Python class처럼 공개한다
+- `setup.py`에서 `include_dirs=[pybind11.get_include()]`가 필요하다
+- C++ extension build 결과도 `.so` 파일로 만들어질 수 있다
+- `.so`, `build/`, `*.egg-info/`는 build output이라 GitHub에 보통 올리지 않는다
+- `.cpp`, `.pyi`, `py.typed`, `setup.py`, `pyproject.toml`은 source 쪽 파일이다
