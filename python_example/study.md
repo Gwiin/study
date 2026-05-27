@@ -4227,4 +4227,303 @@ asyncio.run(main())
 - `await response.text()`로 응답 body를 비동기적으로 읽는다
 - 요청이 여러 개일 때 `aiohttp`와 task를 같이 쓰면 대기 시간을 줄일 수 있다
 
+---
+
+## C binding, Python C extension
+
+Python에서 C 코드를 직접 호출하고 싶을 때 C extension module을 만들 수 있다.<br>
+이번 예제는 C로 만든 `_hello_core` 함수를 Python package인 `simple_hello`에서 사용하는 구조이다.
+
+폴더 구조
+```text
+native_extension/C_binding/simple_wrapper/
+├── setup.py
+└── simple_hello/
+    ├── _hello_core.c
+    ├── hello.py
+    ├── hello.pyi
+    ├── __init__.py
+    └── __init__.pyi
+```
+
+역할:
+- `_hello_core.c` -> 실제 C extension 코드
+- `hello.py` -> C 함수를 Python스럽게 감싸는 wrapper
+- `hello.pyi` -> type hint용 stub file
+- `__init__.py` -> package에서 외부로 보여줄 이름 정리
+- `setup.py` -> C extension build/install 설정
+
+## C extension 핵심 코드
+
+```c
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+#include <stdio.h>
+```
+
+`Python.h`는 Python C API를 사용하기 위한 header이다.<br>
+C extension을 만들려면 Python 개발 header가 필요하다.
+
+```c
+static PyObject *make_greeting(PyObject * self, PyObject *args)
+{
+    const char *name;
+
+    if(!PyArg_ParseTuple(args, "s", &name))
+    {
+        return NULL;
+    }
+    return PyUnicode_FromFormat("hello, %s!", name);
+}
+```
+
+C extension 함수는 보통 `PyObject *`를 return한다.<br>
+Python 객체를 C에서 다루기 위해서이다.
+
+```c
+PyArg_ParseTuple(args, "s", &name)
+```
+
+Python에서 넘어온 argument를 C 변수로 꺼내는 코드이다.<br>
+`"s"`는 문자열 하나를 받겠다는 뜻이다.
+
+주의:
+```c
+PyArg_ParseTuple(args, "ss", &name)
+```
+
+`"ss"`는 문자열 2개를 받겠다는 뜻이다.<br>
+변수는 하나인데 `"ss"`로 쓰면 argument 개수가 맞지 않아서 문제가 생긴다.
+
+```c
+return PyUnicode_FromFormat("hello, %s!", name);
+```
+
+C 문자열을 Python `str` 객체로 만들어서 반환한다.
+
+```c
+static PyObject *print_hello(PyObject *self, PyObject *args)
+{
+    printf("Hello from a small C extension!\n");
+    Py_RETURN_NONE;
+}
+```
+
+Python의 `None`을 반환할 때는 `Py_RETURN_NONE`을 사용할 수 있다.
+
+## method table, module definition
+
+```c
+static PyMethodDef HelloCoreMethods[] = {
+    {"make_greeting", make_greeting, METH_VARARGS, "Return a greeting message"},
+    {"print_hello", print_hello, METH_NOARGS, "Print a hello message."},
+    {NULL,NULL,0, NULL}
+};
+```
+
+C 함수들을 Python module에 등록하는 table이다.
+
+```text
+"make_greeting" -> Python에서 보이는 함수 이름
+make_greeting   -> 실제 C 함수 이름
+METH_VARARGS    -> argument를 tuple로 받음
+METH_NOARGS     -> argument를 받지 않음
+```
+
+마지막 `{NULL, NULL, 0, NULL}`은 table의 끝을 표시한다.
+
+```c
+static PyModuleDef hello_core_module = {
+    PyModuleDef_HEAD_INIT,
+    "_hello_core",
+    "Small C functions used by the Python wrapper",
+    -1,
+    HelloCoreMethods
+};
+```
+
+module 이름, 설명, method table을 묶어서 module 정보를 만든다.
+
+```c
+PyMODINIT_FUNC PyInit__hello_core(void)
+{
+    return PyModule_Create(&hello_core_module);
+}
+```
+
+Python이 C extension module을 import할 때 호출하는 초기화 함수이다.<br>
+module 이름이 `_hello_core`이면 초기화 함수 이름은 `PyInit__hello_core` 형태가 되어야 한다.
+
+## setup.py
+
+```python
+from setuptools import Extension, setup
+
+setup(
+    name="simple-hello",
+    version="0.1.0",
+    packages=["simple_hello"],
+    ext_modules=[
+        Extension("simple_hello._hello_core", ["simple_hello/_hello_core.c"])
+    ],
+    package_data={"simple_hello": ["*.pyi", "py.typed"]},
+    include_package_data=True,
+    zip_safe=False
+)
+```
+
+`Extension`은 C extension module을 빌드하기 위한 설정이다.
+
+```python
+Extension("simple_hello._hello_core", ["simple_hello/_hello_core.c"])
+```
+
+`simple_hello._hello_core`라는 Python module을 만들고, source file은 `_hello_core.c`를 사용한다는 뜻이다.
+
+설치
+```bash
+python3 -m pip install -e .
+```
+
+`-e`는 editable install이다.<br>
+source file을 수정하면서 package를 바로 테스트하기 좋다.
+
+빌드만 직접 할 수도 있다.
+```bash
+python3 setup.py build_ext --inplace
+```
+
+빌드되면 이런 파일이 만들어질 수 있다.
+```text
+_hello_core.cpython-310-x86_64-linux-gnu.so
+```
+
+이 `.so` 파일은 Linux에서 사용하는 shared object이다.<br>
+Python이 import할 수 있는 native binary module이라고 보면 된다.
+
+주의:
+- `.so`, `build/`, `*.egg-info/`, `__pycache__/`는 build output이라 GitHub에 보통 올리지 않는다
+- `.c`, `.py`, `.pyi`, `setup.py` 같은 source file은 올린다
+
+## Python wrapper
+
+C extension을 바로 쓰지 않고 Python wrapper를 한 번 더 둘 수 있다.
+
+```python
+from . import _hello_core
+
+
+class Hello:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    def greet(self) -> str:
+        return _hello_core.make_greeting(self.name)
+
+
+def print_hello() -> None:
+    _hello_core.print_hello()
+```
+
+`_hello_core`는 C로 만든 낮은 수준의 module이다.<br>
+`hello.py`는 이것을 Python class/function 형태로 감싸서 사용하기 쉽게 만든다.
+
+```python
+class Hello:
+    def greet(self) -> str:
+        return _hello_core.make_greeting(self.name)
+```
+
+`Hello("son").greet()`를 호출하면 내부적으로 C 함수 `make_greeting()`을 호출한다.
+
+```python
+def print_hello() -> None:
+    _hello_core.print_hello()
+```
+
+이 함수도 내부적으로 C 함수 `print_hello()`를 호출한다.
+
+## __init__.py 와 .pyi
+
+```python
+from .hello import Hello, print_hello
+
+__all__ = ["Hello", "print_hello"]
+```
+
+`__init__.py`에서 package 밖으로 보여줄 이름을 정리한다.<br>
+그래서 아래처럼 사용할 수 있다.
+
+```python
+import simple_hello
+
+simple_hello.print_hello()
+a = simple_hello.Hello("son")
+```
+
+`.pyi` 파일은 type checker와 editor를 위한 type hint 파일이다.
+
+```python
+class Hello:
+    name: str
+
+    def __init__(self, name: str) -> None: ...
+    def greet(self) -> str: ...
+
+def print_hello() -> None: ...
+```
+
+실제 실행은 `.py`와 `.so`가 담당한다.<br>
+`.pyi`는 VS Code 같은 editor가 자동완성, 타입 체크를 할 때 참고한다.
+
+## 실행 예제
+
+```python
+import simple_hello
+
+def main():
+    simple_hello.print_hello()
+    a = simple_hello.Hello("son")
+    print(a.name)
+    # a.greet()
+```
+
+실행 결과
+```text
+son
+Hello from a small C extension!
+```
+
+코드에서는 `print_hello()`를 먼저 호출했지만 출력에서는 `son`이 먼저 보일 수 있다.<br>
+이건 C의 `printf()` 출력과 Python의 `print()` 출력 buffering 차이 때문에 생길 수 있다.
+
+필요하면 C 쪽에서 flush를 할 수 있다.
+
+```c
+printf("Hello from a small C extension!\n");
+fflush(stdout);
+```
+
+`a.greet()`를 사용하면 C 함수가 만든 문자열을 Python에서 받을 수 있다.
+
+```python
+print(simple_hello.Hello("son").greet())
+```
+
+예상 결과
+```text
+hello, son!
+```
+
+정리:
+- C binding은 Python에서 C 코드를 호출할 수 있게 연결하는 작업이다
+- `Python.h`를 사용해서 Python C API를 쓴다
+- C extension 함수는 Python 객체인 `PyObject *`를 주고받는다
+- `PyArg_ParseTuple()`로 Python argument를 C 변수로 변환한다
+- `PyUnicode_FromFormat()` 같은 함수로 Python 객체를 만들어 반환한다
+- `PyMethodDef`로 Python에 공개할 C 함수를 등록한다
+- `PyInit_모듈명` 함수가 module 초기화 entry point이다
+- `setup.py`의 `Extension`으로 C source를 빌드한다
+- `.so`는 빌드 결과물이고, `.c`, `.py`, `.pyi`, `setup.py`는 source file이다
+- Python wrapper를 두면 C 함수를 더 Python스럽게 사용할 수 있다
 
