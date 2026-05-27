@@ -3995,3 +3995,236 @@ while True:
 - `__next__()`는 다음 값을 반환한다
 - 더 이상 값이 없으면 `StopIteration`을 발생시킨다
 - `SimpleIter`는 `__iter__()`, `__next__()`를 둘 다 가지고 있어서 for문에서 사용할 수 있다
+
+---
+
+## multithreading
+
+thread는 하나의 process 안에서 여러 작업 흐름을 만드는 방법이다.<br>
+시간이 오래 걸리는 작업을 동시에 진행하는 느낌을 만들 수 있다.
+
+```python
+import threading
+import time
+
+total = 0
+lock = threading.Lock()
+```
+
+`total`은 여러 thread가 같이 수정하는 전역 변수이다.<br>
+여러 thread가 같은 값을 동시에 수정하면 race condition이 생길 수 있다.
+
+```python
+lock = threading.Lock()
+```
+
+`Lock`은 동시에 한 thread만 특정 코드를 실행하게 막아주는 도구이다.
+
+```python
+def task(name, duration):
+    global total
+    print(f"쓰레드 {name} 시작")
+    for _ in range(1_000_000):
+        with lock:
+            total += 1
+    time.sleep(duration)
+    print(f"쓰레드 {name} {duration}초 후 완료")
+```
+
+`with lock:` 안에 있는 코드는 한 번에 하나의 thread만 들어갈 수 있다.<br>
+그래서 `total += 1`이 서로 꼬이는 것을 막는다.
+
+```python
+t = threading.Thread(target=task, args=(f"T{i+1}", 5 + i))
+t.start()
+```
+
+`Thread` 객체를 만들 때 실행할 함수는 `target`에 넣는다.<br>
+함수에 전달할 값은 `args`에 tuple로 넣는다.
+
+```python
+t.start()
+```
+
+`start()`를 호출해야 실제 thread가 시작된다.
+
+```python
+for t in threads:
+    t.join()
+```
+
+`join()`은 해당 thread가 끝날 때까지 기다린다.<br>
+그래서 모든 thread가 끝난 뒤에 main 함수의 다음 코드가 실행된다.
+
+실행 결과
+```text
+쓰레드 T1 시작
+쓰레드 T2 시작
+쓰레드 T3 시작
+쓰레드 T4 시작
+쓰레드 T1 5초 후 완료
+쓰레드 T2 6초 후 완료
+쓰레드 T3 7초 후 완료
+쓰레드 T4 8초 후 완료
+main은 언제 실행될까요?
+4000000
+```
+
+4개의 thread가 각각 `1_000_000`번씩 증가시켜서 최종 결과가 `4_000_000`이 된다.
+
+주의할 점:
+- 공유 변수를 여러 thread가 수정하면 race condition을 조심해야 한다
+- `Lock`을 사용하면 안전하지만 lock 구간이 길면 속도가 느려질 수 있다
+- CPython에는 GIL(Global Interpreter Lock)이 있다
+- GIL 때문에 CPU 계산을 thread로 나눠도 항상 빨라지는 것은 아니다
+- network 요청, file I/O, sleep 같은 대기 시간이 많은 작업에는 thread가 도움이 될 수 있다
+
+## asyncio task
+
+`asyncio`는 thread를 여러 개 만드는 방식이 아니라, 하나의 event loop 안에서 여러 coroutine을 번갈아 실행하는 방식이다.
+
+```python
+import asyncio
+
+async def hello():
+    print("hello world!!")
+    await asyncio.sleep(5.0)
+```
+
+`async def`로 만든 함수는 coroutine 함수이다.<br>
+안에서 시간이 걸리는 작업은 `await`로 기다릴 수 있다.
+
+```python
+await asyncio.sleep(5.0)
+```
+
+`time.sleep()`은 현재 흐름을 그냥 막는다.<br>
+`asyncio.sleep()`은 기다리는 동안 event loop가 다른 task를 실행할 수 있게 양보한다.
+
+```python
+async def main():
+    print("main 함수")
+    t1 = asyncio.create_task(hello())
+    t2 = asyncio.create_task(hello())
+    t3 = asyncio.create_task(hello())
+    await t1
+    await t2
+    await t3
+    print("main 함수 끝")
+```
+
+`asyncio.create_task()`는 coroutine을 task로 등록해서 실행되게 한다.
+
+```python
+await t1
+```
+
+`await`는 task가 끝날 때까지 기다린다.<br>
+thread의 `join()`과 느낌이 비슷하지만, asyncio에서는 event loop 안에서 기다리는 것이다.
+
+실행 결과
+```text
+main 함수
+hello world!!
+hello world!!
+hello world!!
+main 함수 끝
+```
+
+`hello()` 세 개가 각각 5초씩 기다리지만, 순서대로 15초 기다리는 방식이 아니라 동시에 대기하는 느낌으로 실행된다.
+
+```python
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+`asyncio.run()`은 event loop를 만들고 `main()` coroutine을 실행한다.
+
+정리:
+- `async def` -> coroutine 함수 정의
+- `await` -> coroutine이나 task가 끝날 때까지 비동기적으로 기다림
+- `create_task()` -> coroutine을 task로 등록
+- `asyncio.run()` -> async main 함수 실행
+- `asyncio.sleep()`은 기다리는 동안 다른 task가 실행될 수 있다
+
+## requests 동기 HTTP 요청
+
+`requests`는 HTTP 요청을 쉽게 보낼 수 있는 library이다.
+
+```python
+import requests
+
+def fetch(url):
+    response = requests.get(url)
+    return response.text
+```
+
+`requests.get(url)`은 해당 URL로 GET 요청을 보낸다.<br>
+응답이 올 때까지 현재 코드 흐름은 기다린다.
+
+```python
+html = fetch("http://python.org")
+print(html)
+```
+
+`response.text`는 응답 body를 문자열로 가져온 값이다.<br>
+웹 페이지라면 HTML 문자열이 들어올 수 있다.
+
+정리:
+- `requests.get()`은 사용하기 쉽다
+- 기본적으로 동기 방식이라 응답이 올 때까지 기다린다
+- 요청을 여러 개 순서대로 보내면 앞 요청이 끝나야 다음 요청으로 넘어간다
+- 간단한 script에서는 편하지만, 요청이 많으면 시간이 오래 걸릴 수 있다
+
+## aiohttp 비동기 HTTP 요청
+
+`aiohttp`는 asyncio 기반으로 HTTP 요청을 보낼 수 있는 library이다.
+
+```python
+import aiohttp
+import asyncio
+
+async def fetch(session, url):
+    async with session.get(url) as response:
+        return await response.text()
+```
+
+`aiohttp`에서는 HTTP 요청도 `async with`, `await`를 사용한다.
+
+```python
+async with aiohttp.ClientSession() as session:
+    html = await fetch(session, "http://python.org")
+    print(html)
+```
+
+`ClientSession`은 HTTP 요청을 보내기 위한 session 객체이다.<br>
+여러 요청을 보낼 때 session을 재사용하면 좋다.
+
+```python
+return await response.text()
+```
+
+응답 본문을 읽는 것도 비동기 작업이기 때문에 `await`를 붙인다.
+
+```python
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main())
+```
+
+event loop를 직접 가져와서 `main()`이 끝날 때까지 실행하는 방식이다.
+
+요즘 코드에서는 아래처럼 쓰는 경우도 많다.
+
+```python
+asyncio.run(main())
+```
+
+정리:
+- `requests` -> 동기 HTTP 요청
+- `aiohttp` -> asyncio 기반 비동기 HTTP 요청
+- `ClientSession`은 HTTP 요청을 위한 session 객체
+- `async with`는 비동기 context manager를 사용할 때 쓴다
+- `await response.text()`로 응답 body를 비동기적으로 읽는다
+- 요청이 여러 개일 때 `aiohttp`와 task를 같이 쓰면 대기 시간을 줄일 수 있다
+
+
