@@ -3642,3 +3642,259 @@ print(print_hello.__name__)
 - `*args`, `**kwargs`로 원래 함수의 argument를 그대로 전달한다
 - 원래 함수의 return 값을 유지하려면 `return result`를 해야 한다
 - `functools.wraps`를 쓰면 원래 함수의 이름과 정보를 보존할 수 있다
+
+---
+
+## 실행 시간 측정 decorator
+
+decorator를 사용하면 함수 실행 전/후에 공통 코드를 넣을 수 있다.<br>
+이번 예제는 함수를 여러 번 실행하고 평균 시간을 계산한다.
+
+```python
+from functools import wraps
+import time
+
+def runtime_check(n):
+    def my_decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            print(f"{func.__name__}지금부터 {n}번 실행 평균 표시")
+            start_time = time.time()
+            for i in range(n):
+                result = func(*args, **kwargs)
+            end_time = time.time()
+            print(f"실행 시간은 {(end_time-start_time)/n:.3} 입니다")
+            return result
+        return wrapper
+    return my_decorator
+```
+
+`runtime_check(n)`은 decorator에 값을 전달하는 형태이다.
+
+```python
+@runtime_check(10)
+def print_hello(n, s):
+    for _ in range(n):
+        s += 1
+    return s
+```
+
+위 코드는 `print_hello`를 감싸서 실행 시간을 측정한다.<br>
+`10`번 실행하고 전체 시간을 10으로 나눠서 평균 시간을 출력한다.
+
+```python
+start_time = time.time()
+...
+end_time = time.time()
+```
+
+`time.time()`은 현재 시간을 초 단위로 가져온다.<br>
+두 시간의 차이를 구하면 실행 시간을 계산할 수 있다.
+
+```python
+print(f"실행 시간은 {(end_time-start_time)/n:.3} 입니다")
+```
+
+`:.3`은 숫자를 대략 3자리 정도로 출력하는 format이다.
+
+주의할 점:
+- `for i in range(n)` 안에서 함수를 여러 번 실행한다
+- `result`에는 마지막 실행 결과가 남는다
+- 그래서 `return result`는 마지막 실행 결과를 반환한다
+- 아주 짧은 시간 측정은 `time.time()`보다 `time.perf_counter()`가 더 적합할 수 있다
+
+정리:
+- decorator로 성능 측정 코드를 함수 밖으로 분리할 수 있다
+- 실행 전 시간, 실행 후 시간을 빼서 걸린 시간을 구한다
+- 여러 번 실행한 뒤 평균을 내면 한 번만 측정하는 것보다 흔들림이 줄어든다
+
+## recursive fibonacci
+
+피보나치는 앞의 두 값을 더해서 다음 값을 만든다.
+
+```text
+1, 1, 2, 3, 5, 8, 13 ...
+```
+
+재귀 함수로 작성하면 수식처럼 표현할 수 있다.
+
+```python
+cnt = 0
+
+def fibonacci(n):
+    global cnt
+    cnt += 1
+    if n == 1:
+        return 1
+    elif n == 2:
+        return 1
+    else:
+        return fibonacci(n-1) + fibonacci(n-2)
+```
+
+`fibonacci(n)`을 구하려고 다시 `fibonacci(n-1)`, `fibonacci(n-2)`를 호출한다.<br>
+이런 식으로 자기 자신을 호출하는 함수를 재귀 함수라고 한다.
+
+```python
+global cnt
+cnt += 1
+```
+
+함수가 몇 번 호출되는지 확인하려고 전역 변수 `cnt`를 사용했다.
+
+실행 결과
+```text
+14930352
+fibonacci 가 수행된 횟수 29860703
+```
+
+`fibonacci(36)` 값은 `14930352`이다.<br>
+그런데 함수 호출 횟수는 `29860703`번이다.
+
+이유:
+- `fibonacci(36)` 안에서 `fibonacci(35)`, `fibonacci(34)`를 호출한다
+- `fibonacci(35)` 안에서도 다시 `fibonacci(34)`를 호출한다
+- 같은 값을 여러 번 반복 계산하게 된다
+
+주의할 점:
+- 재귀는 코드는 짧아질 수 있다
+- 하지만 같은 계산이 반복되면 속도가 매우 느려질 수 있다
+- 종료 조건이 없으면 계속 호출되다가 에러가 난다
+
+## lru_cache
+
+`functools.lru_cache`를 사용하면 함수 결과를 기억해둘 수 있다.
+
+```python
+from functools import cache, lru_cache
+
+cnt = 0
+
+# @cache
+@lru_cache(maxsize=None)
+def fibonacci(n):
+    global cnt
+    cnt += 1
+    if n == 1:
+        return 1
+    elif n == 2:
+        return 1
+    else:
+        return fibonacci(n-1) + fibonacci(n-2)
+```
+
+`@lru_cache(maxsize=None)`를 붙이면 같은 argument로 호출한 결과를 저장한다.<br>
+나중에 같은 값으로 다시 호출하면 함수를 다시 계산하지 않고 저장된 값을 사용한다.
+
+실행 결과
+```text
+14930352
+fibonacci 가 수행된 횟수 36
+```
+
+같은 `fibonacci(36)`인데 호출 횟수가 크게 줄었다.
+
+```text
+cache 없음 -> 29860703번
+lru_cache -> 36번
+```
+
+`maxsize=None`은 cache 크기 제한을 두지 않는다는 뜻이다.
+
+```python
+@cache
+```
+
+`@cache`는 `@lru_cache(maxsize=None)`와 비슷하게 크기 제한 없는 cache로 사용할 수 있다.
+
+주의할 점:
+- cache는 같은 argument에 대해 같은 결과가 나오는 함수에 잘 맞는다
+- 함수 안에서 외부 상태에 따라 결과가 바뀌면 cache 때문에 헷갈릴 수 있다
+- argument는 cache key로 사용되기 때문에 hash 가능한 값이어야 한다
+- cache를 쓰면 메모리를 더 사용한다
+
+정리:
+- 재귀 피보나치는 같은 계산을 많이 반복한다
+- `lru_cache`는 함수 결과를 저장해서 반복 계산을 줄인다
+- 속도는 좋아질 수 있지만 cache 메모리를 사용한다
+
+## generator
+
+generator는 값을 한 번에 전부 만드는 것이 아니라 필요할 때 하나씩 만든다.
+
+```python
+def test():
+    print("test A")
+    yield 0
+    print("test B")
+    yield 1
+```
+
+함수 안에 `yield`가 있으면 일반 함수가 아니라 generator 함수가 된다.
+
+```python
+generated_func = test()
+```
+
+이 줄에서는 `test()` 안의 코드가 바로 실행되지 않는다.<br>
+generator 객체만 만들어진다.
+
+```python
+print(next(generated_func))
+print(next(generated_func))
+```
+
+`next()`를 호출하면 `yield`를 만날 때까지 실행된다.<br>
+그리고 `yield`에서 값을 밖으로 내보내고 잠깐 멈춘다.
+
+실행 흐름
+```text
+main A
+main B
+test A
+0
+test B
+1
+generator end
+main C
+```
+
+세 번째 `next()`를 호출하면 더 이상 `yield`할 값이 없어서 `StopIteration`이 발생한다.
+
+```python
+try:
+    print(next(generated_func))
+except StopIteration:
+    print("generator end")
+```
+
+그래서 `try except`로 generator가 끝난 상황을 처리했다.
+
+generator는 for문으로도 사용할 수 있다.
+
+```python
+for re in test():
+    print(re)
+```
+
+for문은 내부적으로 `next()`를 호출하다가 `StopIteration`이 발생하면 반복을 끝낸다.
+
+실행 결과
+```text
+test A
+0
+test B
+1
+```
+
+`return`과 `yield` 비교:
+- `return`은 값을 반환하고 함수가 끝난다
+- `yield`는 값을 반환하고 현재 위치를 기억한 채 잠깐 멈춘다
+- 다음 `next()`가 오면 멈춘 다음 줄부터 다시 실행한다
+
+정리:
+- generator 함수는 `yield`를 사용한다
+- generator는 lazy evaluation 느낌으로 필요할 때 값을 만든다
+- `next()`를 호출할 때마다 다음 `yield`까지 실행된다
+- 끝까지 실행되면 `StopIteration`이 발생한다
+- for문은 generator를 자연스럽게 순회할 수 있다
