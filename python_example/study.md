@@ -3097,12 +3097,23 @@ def main():
 
 `logging.basicConfig()`로 log 출력 방식을 설정한다.
 
+주의할 점:
+- `basicConfig()`는 보통 logging 설정이 아직 안 되어 있을 때 적용된다
+- 이미 logging 설정이 된 상태에서 다시 호출하면 원하는 대로 안 바뀔 수 있다
+- 이럴 때는 `force=True` 옵션을 사용할 수 있다
+
+```python
+logging.basicConfig(force=True)
+```
+
+수업 예제처럼 한 파일에서 처음 설정하는 경우에는 크게 신경쓰지 않아도 된다.
+
 ```python
 level=logging.INFO
 ```
 
 log level을 `INFO`로 설정했다.<br>
-그래서 `INFO`보다 낮은 `DEBUG` 메시지는 기록되지 않는다.
+그래서 `INFO`보다 숫자가 낮은 `DEBUG` 메시지는 기록되지 않는다.
 
 ```python
 logging.debug("디버그 메시지 입니다.")
@@ -3116,10 +3127,17 @@ log level은 대략 이런 느낌이다.
 DEBUG < INFO < WARNING < ERROR < CRITICAL
 ```
 
+실제 값은 아래처럼 숫자로 정해져 있다.
+
+```text
+DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
+```
+
 - `DEBUG` -> 개발할 때 자세히 확인하는 정보
 - `INFO` -> 정상 흐름에서 남기는 정보
 - `WARNING` -> 에러는 아니지만 주의해야 하는 상황
 - `ERROR` -> 실제 문제가 생긴 상황
+- `CRITICAL` -> 프로그램을 계속 실행하기 어려운 심각한 상황
 
 이번 코드에서는 `level=logging.INFO`라서 `debug`는 안남고 `info`, `warning`만 남는다.
 
@@ -3147,6 +3165,17 @@ encoding="utf-8"
 `filename`을 지정하면 화면 출력이 아니라 파일에 기록된다.<br>
 한글 메시지를 저장하므로 `encoding="utf-8"`도 같이 적었다.
 
+`logger.log`는 현재 실행 위치 기준으로 만들어진다.<br>
+예를 들어 project root에서 실행하면 project root에 `logger.log`가 생긴다.
+
+기본 file mode는 append라서 실행할 때마다 기존 파일 뒤에 log가 추가된다.
+
+```python
+filemode="w"
+```
+
+처럼 지정하면 실행할 때마다 새로 덮어쓸 수 있다.
+
 실제 `logger.log`에 남은 내용
 ```text
 2026-05-27 09:30:06 [INFO] 프로그램 시작
@@ -3161,6 +3190,7 @@ Python에서는 `logging` module을 쓰면 시간, level, message 형식을 쉽�
 - `basicConfig()`로 log level, format, file 등을 설정한다
 - `level=logging.INFO`이면 `DEBUG`는 기록되지 않는다
 - `filename`을 주면 log가 파일에 저장된다
+- `filename`으로 만든 log 파일은 기본적으로 append 된다
 - `print()`는 단순 확인용, `logging`은 기록을 남기는 용도로 생각하면 된다
 
 ---
@@ -3187,6 +3217,9 @@ df = pd.read_csv(csv_path / 'ta_20260527093811.csv')
 `csv_path / '파일명.csv'`처럼 `/` 연산자로 경로를 이어붙일 수 있다.
 
 `pd.read_csv()`는 csv 파일을 읽어서 `DataFrame`으로 만든다.
+
+`DataFrame`은 pandas에서 사용하는 2차원 표 형태 데이터이다.<br>
+엑셀 표처럼 row와 column이 있다고 생각하면 된다.
 
 CSV 파일 일부
 ```text
@@ -3223,6 +3256,15 @@ dtypes: float64(3), int64(1), object(1)
 - `average`, `low`, `high`는 실수라서 float64
 - `location`은 정수라서 int64
 
+`read_csv()`가 날짜처럼 생긴 값을 항상 날짜 타입으로 바꿔주는 것은 아니다.<br>
+이번에는 `timestamp`가 `object`로 들어왔기 때문에 문자열처럼 처리된 것이다.
+
+날짜 타입으로 읽고 싶으면 옵션을 줄 수 있다.
+
+```python
+df = pd.read_csv(csv_path / 'ta_20260527093811.csv', parse_dates=['timestamp'])
+```
+
 ```python
 plt.plot(df['timestamp'], df['average'])
 plt.show()
@@ -3230,6 +3272,9 @@ plt.show()
 
 `df['timestamp']`는 x축으로 사용한다.<br>
 `df['average']`는 y축으로 사용한다.
+
+`df['컬럼명']`을 쓰면 pandas `Series`가 나온다.<br>
+DataFrame에서 column 하나만 꺼낸 형태이다.
 
 즉 날짜별 평균 기온을 선 그래프로 그리는 코드이다.
 
@@ -3240,6 +3285,13 @@ plt.show()
 `plt.figure(figsize=(12,6))`를 사용하면 그래프 창 크기를 지정할 수 있다.<br>
 지금은 주석 처리되어 있어서 기본 크기로 그려진다.
 
+날짜 문자열이 x축에 그대로 들어가면 글자가 겹칠 수 있다.<br>
+그럴 때는 x축 글자를 돌려서 볼 수 있다.
+
+```python
+plt.xticks(rotation=45)
+```
+
 주의할 점:
 ```text
 UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
@@ -3248,10 +3300,345 @@ UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
 이 경고는 코드 문법 문제라기보다 matplotlib backend 문제이다.<br>
 현재 실행 환경이 `Agg`처럼 화면에 창을 띄우지 않는 backend이면 `plt.show()`로 그래프 창을 보여줄 수 없다.
 
+즉 코드가 틀렸다는 뜻은 아니고, 그래프 창을 띄울 수 있는 GUI backend가 없는 상태라는 뜻이다.
+
 정리:
 - `pd.read_csv()` -> CSV 파일을 DataFrame으로 읽기
 - `df.info()` -> 데이터 column, null, type 확인
-- `df['컬럼명']` -> DataFrame에서 한 column 선택
+- `df['컬럼명']` -> DataFrame에서 한 column 선택, 결과는 Series
 - `plt.plot(x, y)` -> x, y 값으로 선 그래프 그리기
 - `plt.show()` -> 그래프 창 표시
+- 날짜를 날짜 타입으로 읽으려면 `parse_dates` 옵션을 사용할 수 있다
 - `FigureCanvasAgg` 경고는 GUI 표시 backend가 없을 때 날 수 있다
+
+
+
+---
+
+## UX, GUI, TUI
+
+UX는 사용자가 프로그램을 쓰면서 느끼는 전체 경험이다.<br>
+GUI, TUI는 화면을 구성하는 방식에 가깝다.
+
+```text
+UX -> 사용자 경험
+UI -> 사용자가 직접 보는 화면, 조작 방식
+GUI -> Graphic User Interface
+TUI -> Text User Interface
+CLI -> Command Line Interface
+```
+
+GUI는 버튼, 창, 그래프 같은 그래픽 요소를 사용한다.<br>
+TUI는 terminal 안에서 text 기반으로 화면을 구성한다.
+
+```text
+GUI 예: VS Code, 계산기, 브라우저
+TUI 예: vim, htop, terminal menu
+CLI 예: python script.py, git status
+```
+
+## GUI app 만드는 방식
+
+GUI app은 크게 native app 방식과 web app 방식으로 볼 수 있다.
+
+```text
+GUI
+-> native app
+-> web app
+-> web 기술로 만든 desktop app
+```
+
+native app은 OS가 제공하는 GUI 기능을 직접 사용한다.
+
+```text
+Windows -> .NET, WinUI, WPF 등
+Linux -> X11/Wayland 위에서 GTK, Qt 등
+macOS -> Cocoa, SwiftUI 등
+```
+
+Python에서 GUI를 만들 때는 이런 library를 사용할 수 있다.
+
+```text
+tkinter -> Python 기본 GUI library
+PyQt / PySide -> Qt 기반
+wxPython -> wxWidgets 기반
+```
+
+정리:
+- native app은 OS 기능을 잘 쓸 수 있음
+- 대신 OS별 코드나 packaging 차이가 생길 수 있음
+- Windows, Linux, macOS에서 같은 모양으로 만들려면 신경쓸 것이 많다
+
+## web app과 desktop app
+
+web app은 browser에서 실행된다.
+
+```text
+frontend -> HTML, CSS, JavaScript, React, Vue ...
+backend -> FastAPI, Flask, Django, Spring ...
+```
+
+장점:
+- 배포가 쉬움
+- browser만 있으면 여러 OS에서 사용 가능
+- frontend/backend를 나눠서 개발하기 좋음
+
+주의할 점:
+- native app보다 OS 기능 접근이 제한될 수 있음
+- browser 환경이라 파일, 장치, process 접근에 제약이 있음
+- 성능은 작업 종류에 따라 차이가 난다
+
+요즘 web app도 충분히 빠른 경우가 많다.<br>
+그래서 단순히 web app은 느리다고만 보면 안 되고, 어떤 기능을 만드는지 봐야 한다.
+
+## Electron
+
+Electron은 web 기술로 desktop app을 만드는 framework이다.
+
+```text
+HTML / CSS / JavaScript
++ Chromium
++ Node.js
+= desktop app 느낌
+```
+
+여기서 들어가는 것은 일반 사용자가 설치하는 Chrome browser라기보다 Chromium runtime에 가깝다.<br>
+그래서 Electron app은 web page처럼 만들지만, desktop app처럼 실행된다.
+
+예:
+```text
+VS Code
+Slack
+Discord
+```
+
+장점:
+- web 기술을 그대로 사용 가능
+- Windows, Linux, macOS용 desktop app을 만들기 쉬움
+- Node.js를 통해 파일 시스템 같은 desktop 기능도 사용할 수 있음
+
+단점:
+- Chromium runtime을 같이 포함하는 경우가 많아서 용량이 커질 수 있음
+- memory 사용량이 커질 수 있음
+- 작은 app에는 무겁게 느껴질 수 있음
+
+## WebView2, Tauri, pywebview
+
+Electron이 항상 나쁜 것은 아니지만, 가벼운 desktop app을 만들고 싶으면 WebView 계열을 사용할 수 있다.
+
+WebView는 browser 전체를 새로 만드는 것이 아니라, OS에 있는 web rendering 기능을 app 안에 붙여서 사용하는 느낌이다.
+
+```text
+WebView2 -> Windows에서 Microsoft Edge Chromium 기반 WebView 사용
+WKWebView -> macOS/iOS의 WebView
+WebKitGTK -> Linux GTK 환경에서 많이 사용
+```
+
+WebView2는 Electron의 직접 개선판이라기보다는 Windows에서 사용할 수 있는 webview runtime이다.<br>
+브라우저 전체 UI는 없고, web page를 렌더링하는 기능을 app 안에서 사용한다.
+
+Tauri:
+```text
+frontend -> HTML, CSS, JavaScript
+backend/core -> Rust
+webview -> OS 기본 webview 사용
+```
+
+Tauri는 Electron처럼 Chromium을 통째로 포함하는 방식이 아니라 OS의 webview를 활용한다.<br>
+그래서 보통 app 크기와 memory 사용량을 줄이기 좋다.
+
+pywebview:
+```text
+frontend -> HTML, CSS, JavaScript
+backend -> Python
+webview -> OS native webview 사용
+```
+
+Python으로 간단한 desktop GUI를 만들고, 화면은 HTML/CSS로 만들고 싶을 때 사용할 수 있다.
+
+webview(cpp):
+```text
+C/C++에서 webview를 띄우는 작은 library 계열
+```
+
+정리:
+- Electron -> web 기술 + Chromium + Node.js, 기능은 강하지만 무거울 수 있음
+- WebView2 -> Windows의 Edge Chromium 기반 webview
+- Tauri -> Rust + OS webview, Electron보다 가볍게 만들기 좋음
+- pywebview -> Python + OS webview
+- native GUI -> tkinter, Qt, GTK 같은 GUI library 사용
+
+## 추가로 알아야 할 것
+
+GUI app이나 web app을 만들 때는 이벤트 처리 흐름을 이해해야 한다.
+
+```text
+사용자가 버튼 클릭
+-> event 발생
+-> callback 함수 실행
+-> 화면 갱신
+```
+
+그래서 아래 개념이 중요하다.
+
+- event loop
+- callback
+- 비동기 처리
+- thread
+- decorator
+
+주의할 점:
+- 시간이 오래 걸리는 작업을 GUI main thread에서 바로 실행하면 화면이 멈출 수 있다
+- 네트워크 요청, 파일 처리, 큰 계산은 비동기 처리나 thread를 고려해야 한다
+- decorator는 FastAPI, Flask, GUI callback 등록 같은 곳에서 자주 보인다
+
+
+---
+
+## wrapper function
+
+Python에서는 함수도 객체처럼 변수에 담고, 다른 함수의 argument로 보낼 수 있다.
+
+```python
+def simple_rapper(func):
+    def wrapper():
+        print("func 실행 전 코드...")
+        func()
+        print("func 실행 후 코드...")
+    return wrapper
+```
+
+`simple_rapper` 함수는 함수를 하나 받는다.<br>
+받은 함수 이름이 `func`이다.
+
+안쪽에 `wrapper()` 함수를 새로 만들고, 그 안에서 `func()`를 실행한다.
+
+```python
+def print_hello():
+    print("print_hello 함수가 실행됨")
+```
+
+```python
+wrapper = simple_rapper(print_hello)
+wrapper()
+```
+
+`simple_rapper(print_hello)`를 호출하면 `wrapper` 함수가 return 된다.<br>
+그래서 `wrapper()`를 호출하면 아래 순서로 실행된다.
+
+실행 결과
+```text
+func 실행 전 코드...
+print_hello 함수가 실행됨
+func 실행 후 코드...
+```
+
+정리:
+- 함수 이름 뒤에 `()`를 붙이면 함수를 실행한다
+- 함수 이름만 쓰면 함수 객체 자체를 전달한다
+- `func()` -> 전달받은 함수 실행
+- `return wrapper` -> wrapper 함수 자체를 반환
+- 이런 식으로 원래 함수 앞뒤에 코드를 추가할 수 있다
+
+## decorator
+
+decorator는 wrapper function을 더 편하게 쓰는 문법이다.
+
+```python
+@hi("hi")
+def print_hello(n, v):
+    for _ in range(n):
+        print(v)
+    return 123
+```
+
+위 코드는 대략 아래처럼 생각할 수 있다.
+
+```python
+print_hello = hi("hi")(print_hello)
+```
+
+즉 `print_hello` 함수가 `wrapper`로 감싸진다.
+
+```python
+from functools import wraps
+
+def hi(value):
+    def my_decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            print(f"func 실행 전 코드..{value}")
+            result = func(*args, **kwargs)
+            print(f"func 실행 후 코드..{value}")
+            return result
+        return wrapper
+    return my_decorator
+```
+
+구조를 단계별로 보면 아래와 같다.
+
+```text
+hi("hi")
+-> my_decorator 반환
+
+my_decorator(print_hello)
+-> wrapper 반환
+
+print_hello(5, "hello")
+-> 실제로는 wrapper(5, "hello") 실행
+```
+
+`hi(value)`처럼 decorator에 값을 전달하려면 함수가 한 번 더 감싸진 구조가 된다.
+
+```python
+def hi(value):
+    def my_decorator(func):
+        def wrapper(*args, **kwargs):
+            ...
+        return wrapper
+    return my_decorator
+```
+
+`wrapper(*args, **kwargs)`를 사용하면 원래 함수의 argument를 그대로 받을 수 있다.
+
+```python
+result = func(*args, **kwargs)
+return result
+```
+
+원래 함수의 return 값을 유지하려면 결과를 변수에 담았다가 다시 return 해야 한다.<br>
+이걸 안 하면 감싼 함수의 return 값이 사라질 수 있다.
+
+실행 결과
+```text
+func 실행 전 코드..hi
+hello
+hello
+hello
+hello
+hello
+func 실행 후 코드..hi
+print_hello
+```
+
+```python
+@wraps(func)
+def wrapper(*args, **kwargs):
+```
+
+`@wraps(func)`는 wrapper 함수가 원래 함수의 이름 같은 정보를 유지하도록 도와준다.
+
+```python
+print(print_hello.__name__)
+```
+
+`@wraps(func)`가 있으면 `print_hello`가 출력된다.<br>
+없으면 `wrapper`가 출력될 수 있다.
+
+정리:
+- decorator는 함수를 감싸서 앞뒤에 기능을 추가하는 문법이다
+- `@decorator`는 함수 정의 바로 위에 붙인다
+- argument가 있는 decorator는 함수가 한 단계 더 필요하다
+- `*args`, `**kwargs`로 원래 함수의 argument를 그대로 전달한다
+- 원래 함수의 return 값을 유지하려면 `return result`를 해야 한다
+- `functools.wraps`를 쓰면 원래 함수의 이름과 정보를 보존할 수 있다
