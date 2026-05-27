@@ -3898,3 +3898,100 @@ test B
 - `next()`를 호출할 때마다 다음 `yield`까지 실행된다
 - 끝까지 실행되면 `StopIteration`이 발생한다
 - for문은 generator를 자연스럽게 순회할 수 있다
+
+## Iterable, Iterator
+
+`for`문에서 사용할 수 있는 객체를 Iterable이라고 볼 수 있다.
+
+```python
+from collections.abc import Iterable
+```
+
+`collections.abc.Iterable`을 사용하면 객체가 Iterable인지 확인할 수 있다.
+
+```python
+print(isinstance(SimpleIter(1, 5), Iterable))
+```
+
+실행 결과
+```text
+True
+```
+
+이번 예제에서는 직접 반복 가능한 class를 만들었다.
+
+```python
+class SimpleIter:
+    def __init__(self, start, end):
+        self.current = start
+        self.end = end
+
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        if self.current >= self.end:
+            raise StopIteration
+        value = self.current
+        self.current += 1
+        return value
+```
+
+`__iter__()`는 iterator를 반환하는 메서드이다.<br>
+여기서는 자기 자신이 iterator이기 때문에 `return self`를 한다.
+
+```python
+def __iter__(self):
+    return self
+```
+
+`__next__()`는 값을 하나씩 꺼내는 메서드이다.
+
+```python
+def __next__(self):
+    if self.current >= self.end:
+        raise StopIteration
+    value = self.current
+    self.current += 1
+    return value
+```
+
+`current`가 `end`보다 커지거나 같아지면 더 이상 꺼낼 값이 없다는 뜻이다.<br>
+이때 `StopIteration`을 발생시킨다.
+
+```python
+for i in SimpleIter(1, 5):
+    print(i)
+```
+
+실행 결과
+```text
+1
+2
+3
+4
+```
+
+`end` 값인 5는 출력되지 않는다.<br>
+`range(1, 5)`처럼 끝 값은 포함하지 않는 형태이다.
+
+for문은 대략 아래처럼 동작한다고 생각할 수 있다.
+
+```python
+iterator = iter(SimpleIter(1, 5))
+
+while True:
+    try:
+        i = next(iterator)
+        print(i)
+    except StopIteration:
+        break
+```
+
+정리:
+- Iterable -> `iter()`를 사용할 수 있는 객체
+- Iterator -> `next()`로 값을 하나씩 꺼낼 수 있는 객체
+- `__iter__()`는 iterator를 반환한다
+- `__next__()`는 다음 값을 반환한다
+- 더 이상 값이 없으면 `StopIteration`을 발생시킨다
+- `SimpleIter`는 `__iter__()`, `__next__()`를 둘 다 가지고 있어서 for문에서 사용할 수 있다

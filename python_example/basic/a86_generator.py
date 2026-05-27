@@ -18,8 +18,12 @@ def main():
         print("generator end")
     print("main C")
 
+    # iterable 한 객체는 foransdmf ehftn dlTEk.
+    # __iter__, __next__ 이 두개가 존재하면 iterable
+
     for re in test():
         print(re)
+
 
 if __name__ == "__main__":
     main()
