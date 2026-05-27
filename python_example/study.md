@@ -3072,3 +3072,186 @@ python3 basic/a103_main_argument.py abc 123 hello
 - argument가 많아지고 option 처리가 필요하면 `argparse` library를 사용하면 좋다
 
 
+---
+
+## logging
+
+`print()`는 화면에 바로 출력하는 용도로 많이 사용한다.<br>
+프로그램 실행 기록을 남기고 싶으면 `logging` module을 사용할 수 있다.
+
+```python
+import logging
+
+def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        filename="logger.log",
+        encoding="utf-8"
+    )
+    logging.debug("디버그 메시지 입니다.")
+    logging.info("프로그램 시작")
+    logging.warning("프로그램 종료 직전입니다.")
+```
+
+`logging.basicConfig()`로 log 출력 방식을 설정한다.
+
+```python
+level=logging.INFO
+```
+
+log level을 `INFO`로 설정했다.<br>
+그래서 `INFO`보다 낮은 `DEBUG` 메시지는 기록되지 않는다.
+
+```python
+logging.debug("디버그 메시지 입니다.")
+logging.info("프로그램 시작")
+logging.warning("프로그램 종료 직전입니다.")
+```
+
+log level은 대략 이런 느낌이다.
+
+```text
+DEBUG < INFO < WARNING < ERROR < CRITICAL
+```
+
+- `DEBUG` -> 개발할 때 자세히 확인하는 정보
+- `INFO` -> 정상 흐름에서 남기는 정보
+- `WARNING` -> 에러는 아니지만 주의해야 하는 상황
+- `ERROR` -> 실제 문제가 생긴 상황
+
+이번 코드에서는 `level=logging.INFO`라서 `debug`는 안남고 `info`, `warning`만 남는다.
+
+```python
+format="%(asctime)s [%(levelname)s] %(message)s"
+```
+
+log 한 줄의 형식을 지정한다.
+
+- `%(asctime)s` -> 시간
+- `%(levelname)s` -> INFO, WARNING 같은 log level 이름
+- `%(message)s` -> 내가 적은 log message
+
+```python
+datefmt="%Y-%m-%d %H:%M:%S"
+```
+
+시간 출력 형식을 정한다.
+
+```python
+filename="logger.log"
+encoding="utf-8"
+```
+
+`filename`을 지정하면 화면 출력이 아니라 파일에 기록된다.<br>
+한글 메시지를 저장하므로 `encoding="utf-8"`도 같이 적었다.
+
+실제 `logger.log`에 남은 내용
+```text
+2026-05-27 09:30:06 [INFO] 프로그램 시작
+2026-05-27 09:30:06 [WARNING] 프로그램 종료 직전입니다.
+```
+
+C에서는 보통 `printf()`로 확인하거나 파일 포인터로 직접 파일에 기록한다.<br>
+Python에서는 `logging` module을 쓰면 시간, level, message 형식을 쉽게 맞출 수 있다.
+
+정리:
+- `logging`은 프로그램 실행 기록을 남길 때 사용한다
+- `basicConfig()`로 log level, format, file 등을 설정한다
+- `level=logging.INFO`이면 `DEBUG`는 기록되지 않는다
+- `filename`을 주면 log가 파일에 저장된다
+- `print()`는 단순 확인용, `logging`은 기록을 남기는 용도로 생각하면 된다
+
+---
+
+## pandas csv 읽기와 matplotlib 그래프
+
+CSV 파일을 읽어서 표 형태 데이터로 만들고, 그중 필요한 column을 그래프로 그리는 예제이다.
+
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+from pathlib import Path
+```
+
+`pandas`는 보통 `pd`라는 이름으로 줄여서 사용한다.<br>
+`matplotlib.pyplot`은 보통 `plt`로 줄여서 사용한다.
+
+```python
+csv_path = Path(r"/home/hrd_1_3/study/python_example/data")
+df = pd.read_csv(csv_path / 'ta_20260527093811.csv')
+```
+
+`Path`를 사용해서 파일 경로를 만든다.<br>
+`csv_path / '파일명.csv'`처럼 `/` 연산자로 경로를 이어붙일 수 있다.
+
+`pd.read_csv()`는 csv 파일을 읽어서 `DataFrame`으로 만든다.
+
+CSV 파일 일부
+```text
+timestamp,location,average,low,high
+2026-02-01,239,-1.8,-5.5,3.3
+2026-02-02,239,-2.7,-6.3,0.6
+```
+
+```python
+df.info()
+```
+
+`df.info()`는 DataFrame의 column 이름, null 개수, 자료형을 확인할 때 사용한다.
+
+실행 결과
+```text
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 30 entries, 0 to 29
+Data columns (total 5 columns):
+ #   Column     Non-Null Count  Dtype  
+---  ------     --------------  -----  
+ 0   timestamp  30 non-null     object 
+ 1   location   30 non-null     int64  
+ 2   average    30 non-null     float64
+ 3   low        30 non-null     float64
+ 4   high       30 non-null     float64
+dtypes: float64(3), int64(1), object(1)
+```
+
+확인한 점:
+- row는 30개
+- column은 5개
+- `timestamp`는 문자열처럼 object로 들어옴
+- `average`, `low`, `high`는 실수라서 float64
+- `location`은 정수라서 int64
+
+```python
+plt.plot(df['timestamp'], df['average'])
+plt.show()
+```
+
+`df['timestamp']`는 x축으로 사용한다.<br>
+`df['average']`는 y축으로 사용한다.
+
+즉 날짜별 평균 기온을 선 그래프로 그리는 코드이다.
+
+```python
+# plt.figure(figsize=(12,6))
+```
+
+`plt.figure(figsize=(12,6))`를 사용하면 그래프 창 크기를 지정할 수 있다.<br>
+지금은 주석 처리되어 있어서 기본 크기로 그려진다.
+
+주의할 점:
+```text
+UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
+```
+
+이 경고는 코드 문법 문제라기보다 matplotlib backend 문제이다.<br>
+현재 실행 환경이 `Agg`처럼 화면에 창을 띄우지 않는 backend이면 `plt.show()`로 그래프 창을 보여줄 수 없다.
+
+정리:
+- `pd.read_csv()` -> CSV 파일을 DataFrame으로 읽기
+- `df.info()` -> 데이터 column, null, type 확인
+- `df['컬럼명']` -> DataFrame에서 한 column 선택
+- `plt.plot(x, y)` -> x, y 값으로 선 그래프 그리기
+- `plt.show()` -> 그래프 창 표시
+- `FigureCanvasAgg` 경고는 GUI 표시 backend가 없을 때 날 수 있다
