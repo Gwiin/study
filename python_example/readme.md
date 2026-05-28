@@ -4911,3 +4911,85 @@ C/C++ extension과 마찬가지로 Rust extension도 실제 구현은 binary mod
 - Rust binding도 빌드 후 Python에서는 `import rust_hello`처럼 사용할 수 있다
 - `target/`과 wheel은 build output이고, `src/lib.rs`, `Cargo.toml`, `pyproject.toml`, `.pyi`, `py.typed`는 source 쪽 파일이다
 
+## webview_example 구성
+
+`webview_example`은 Python에서 작은 desktop webview 창을 띄워보는 예제이다.<br>
+package는 `uv`로 관리하고, Linux에서는 GTK backend를 사용한다.
+
+먼저 project 폴더로 이동한다.
+
+```bash
+cd /home/hrd_1_3/study/python_example/webview_example
+```
+
+Linux에서 `pywebview`를 쓰려면 Python package만으로는 부족하다.<br>
+GTK, WebKit2GTK, PyGObject build에 필요한 system package가 필요하다.
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  pkg-config \
+  gobject-introspection \
+  libgirepository1.0-dev \
+  gir1.2-gtk-3.0 \
+  gir1.2-webkit2-4.1 \
+  libcairo2-dev
+```
+
+`pyproject.toml`에는 Python package 의존성을 적는다.
+
+```toml
+dependencies = [
+    "pygobject==3.50.0",
+    "pywebview>=6.2.1",
+]
+```
+
+- `pywebview`는 Python에서 `import webview`로 사용한다
+- `pygobject`는 Python에서 GTK를 사용하기 위한 binding이다
+- package 이름은 `pywebview`지만 import 이름은 `webview`이다
+
+가상환경과 package 설치는 `uv sync`로 맞춘다.
+
+```bash
+uv sync
+```
+
+`uv sync`는 `.venv`를 만들고 `pyproject.toml`, `uv.lock` 기준으로 package를 설치한다.<br>
+새 package를 추가할 때는 `uv add 패키지명`을 사용하면 `pyproject.toml`과 `uv.lock`이 같이 갱신된다.
+
+실행 코드는 `timer/main.py`에 작성한다.
+
+```python
+import webview
+
+
+def main():
+    webview.create_window("Timer", html="<h1>Hello Webview</h1>")
+    webview.start()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+실행
+```bash
+uv run python timer/main.py
+```
+
+확인용 명령
+```bash
+uv run python -c "import webview; print(webview.__name__)"
+uv run python -c "import gi; gi.require_version('Gtk', '3.0'); import webview.platforms.gtk"
+```
+
+정리:
+- `uv`는 project별 `.venv`와 package version을 맞춰준다
+- `pyproject.toml`은 Python project 설정 파일이다
+- `uv.lock`은 실제 설치 version을 고정하는 lock file이다
+- `pywebview` 실행에는 GUI backend가 필요하다
+- Linux에서는 GTK backend를 쓰기 때문에 `PyGObject`, GTK system package가 필요하다
+- `ModuleNotFoundError: No module named 'gi'`가 나오면 GTK/PyGObject 쪽 설치가 안 된 것이다
+
+
