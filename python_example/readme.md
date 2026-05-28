@@ -1,18 +1,5 @@
 # Python 학습 정리
 
-## 저장소 구성
-
-- `basic/hello.py`: Python script 실행과 `__name__`
-- `basic/variable.py`: 변수와 객체 참조
-- `basic/a00_default.py`: 기본 실행 틀
-- `basic/a02_keyward.py`: Python keyword와 C 문법 비교
-- `basic/a04_print.py`: `print`, literal, 출력 option
-- `basic/a08.str_indexing.py`: 문자열 indexing/slicing
-- `basic/a13_comparison.py`: 비교 연산
-- `basic/a19_range_enumerate.py`: `range`, `enumerate`, `zip`
-- `basic/frame.py`: scope와 frame
-- `basic/interpreter.c`: C로 보는 interpreter 개념
-
 ## 가상환경
 
 Python은 project마다 필요한 package와 version이 달라질 수 있음. 그래서 project별로 실행 환경을 분리함.
@@ -4923,3 +4910,4 @@ C/C++ extension과 마찬가지로 Rust extension도 실제 구현은 binary mod
 - `maturin`은 Rust/PyO3 package를 빌드하는 도구이다
 - Rust binding도 빌드 후 Python에서는 `import rust_hello`처럼 사용할 수 있다
 - `target/`과 wheel은 build output이고, `src/lib.rs`, `Cargo.toml`, `pyproject.toml`, `.pyi`, `py.typed`는 source 쪽 파일이다
+
