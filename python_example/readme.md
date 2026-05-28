@@ -5165,3 +5165,482 @@ def base_url(self):
 - webview는 browser처럼 local server 화면을 보여준다
 - Python만 쓰는 GUI라기보다, Python backend + web frontend를 붙이는 방식이다
 
+---
+
+## webview click counter 예제 구조
+
+`webview_example/click` 폴더는 버튼을 누르면 숫자가 증가/감소하는 desktop webview 예제이다.
+
+```text
+webview_example/click/
+├── backend/
+│   └── server_flask.py
+├── frontend/
+│   ├── app.js
+│   ├── index.html
+│   └── style.css
+└── main.py
+```
+
+정리:
+- `main.py` -> 프로그램 시작점, Flask server를 켜고 webview 창을 띄움
+- `backend/server_flask.py` -> counter API를 제공하는 local Flask server
+- `frontend/index.html` -> 화면 뼈대, 카운트 숫자와 `+`, `-` 버튼
+- `frontend/app.js` -> 버튼 클릭 시 API 호출
+- `frontend/style.css` -> 화면 디자인
+
+## click/main.py
+
+```python
+from pathlib import Path
+
+import webview
+from backend.server_flask import CounterApiServer
+
+BASE_DIR = Path(__file__).resolve().parent
+FRONTEND_DIR = BASE_DIR / "frontend"
+```
+
+`Path(__file__).resolve().parent`는 현재 실행 파일인 `main.py`가 있는 폴더를 구한다.<br>
+여기서는 `webview_example/click` 폴더가 `BASE_DIR`이 된다.
+
+```python
+FRONTEND_DIR = BASE_DIR / "frontend"
+```
+
+`frontend` 폴더 경로를 만든다.<br>
+이 경로를 Flask server에 넘겨서 HTML, CSS, JS 파일을 제공하게 한다.
+
+```python
+def main():
+    server = CounterApiServer(FRONTEND_DIR)
+    server.start()
+
+    try:
+        webview.create_window(
+            "클릭 카운터",
+            url=server.base_url,
+            width=420,
+            height=360,
+            resizable=True,
+        )
+        webview.start()
+    finally:
+        server.stop()
+```
+
+실행 흐름:
+- `CounterApiServer(FRONTEND_DIR)`로 local Flask server 객체를 만든다
+- `server.start()`로 server thread를 시작한다
+- `webview.create_window()`로 desktop 창을 만든다
+- `url=server.base_url`이라서 webview 창은 Flask가 띄운 local 주소를 보여준다
+- `webview.start()`가 실제 GUI event loop를 시작한다
+- webview 창이 닫히거나 중간에 종료되어도 `finally`에서 `server.stop()`을 호출한다
+
+```python
+if __name__ == "__main__":
+    main()
+```
+
+앞에서 정리한 것처럼 직접 실행할 때만 `main()`이 호출되게 하는 진입점 패턴이다.
+
+정리:
+- `main.py`는 backend와 frontend를 연결하는 시작 파일이다
+- 직접 HTML 파일을 여는 것이 아니라 Flask server 주소를 webview에 넣는다
+- desktop app처럼 보이지만 내부는 local web app 구조이다
+- `try/finally`를 사용해서 GUI 종료 후 server thread도 정리하려는 의도가 보인다
+- 창 제목도 `"클릭 카운터"`로 바꿔서 실제 예제 내용과 맞췄다
+
+## click/backend/server_flask.py
+
+```python
+import json
+import queue
+import socket
+from datetime import datetime
+from pathlib import Path
+from threading import Lock, Thread
+from urllib import error, request
+
+from flask import Flask, Response, send_from_directory
+from werkzeug.serving import make_server
+
+FORT_NUMBER = 11722
+```
+
+사용하는 모듈:
+- `json` -> SSE로 보낼 payload를 JSON 문자열로 바꿀 때 사용
+- `queue` -> client별 event queue를 만들 때 사용
+- `Path` -> frontend 폴더 경로 처리
+- `Lock` -> count와 event client 목록을 안전하게 다루기 위해 사용
+- `Thread` -> Flask server를 별도 thread에서 실행
+- `urllib.request` -> server가 이미 떠 있는지 HTTP 요청으로 확인
+- `Flask`, `Response`, `send_from_directory` -> web server, event stream, 파일 응답
+- `make_server` -> Flask 개발 서버를 코드에서 직접 만들고 제어
+
+주의:
+- 현재 코드에서는 `socket`, `datetime` import가 남아 있지만 직접 사용되지는 않는다.
+- `FORT_NUMBER`는 이름상 `PORT_NUMBER`를 쓰려던 것으로 보이지만, 실제 역할은 고정 port 번호이다.
+
+```python
+FORT_NUMBER = 11722
+```
+
+이전에는 빈 port를 자동으로 찾는 방식이었다.<br>
+지금은 `11722`번 port를 고정해서 사용한다.
+
+고정 port를 쓰는 이유:
+- webview를 여러 번 실행해도 같은 주소를 사용한다
+- 이미 같은 server가 떠 있으면 새 server를 또 만들지 않고 재사용할 수 있다
+- frontend에서 `EventSource` 같은 연결을 유지하기 쉬워진다
+
+주의:
+- 고정 port는 다른 프로그램이 같은 port를 쓰고 있으면 충돌할 수 있다.
+- 그래서 아래에서 `_isServerReady()`로 이미 server가 있는지 먼저 확인한다.
+
+```python
+class CounterApiServer:
+    def __init__(self, frontend_dir):
+        self.frontend_dir = Path(frontend_dir).resolve()
+        self.port = FORT_NUMBER
+        self._count = 0
+        self._lock = Lock()
+        self._event_clients = []
+```
+
+`CounterApiServer`는 click counter용 Flask server를 관리하는 class이다.
+
+- `frontend_dir` -> HTML/CSS/JS가 있는 폴더
+- `port` -> `FORT_NUMBER`로 정한 고정 port
+- `_count` -> 현재 counter 값
+- `_lock` -> thread 동시 접근을 막기 위한 lock
+- `_event_clients` -> SSE로 연결된 client queue 목록
+
+```python
+self.app = Flask(
+    __name__,
+    static_folder=str(self.frontend_dir),
+    static_url_path="",
+)
+```
+
+`static_folder`를 frontend 폴더로 지정한다.<br>
+그래서 `style.css`, `app.js` 같은 파일을 Flask가 정적 파일로 제공할 수 있다.
+
+```python
+self._owns_server = False
+self._server = None
+self._thread: Thread | None = None
+```
+
+server 객체와 thread를 처음부터 만들지 않고 `start()`에서 만든다.<br>
+이미 같은 port에 server가 떠 있으면 이 객체가 server를 소유하지 않을 수 있기 때문이다.
+
+- `_owns_server = False` -> 내가 새로 server를 만들었는지 표시
+- `_server = None` -> 아직 server 객체 없음
+- `_thread: Thread | None = None` -> 아직 server thread 없음
+
+```python
+self.app.add_url_rule("/", "index", self._serve_index)
+self.app.add_url_rule("/api/counter", "counter", self._counter_payload)
+self.app.add_url_rule("/api/counter/increase", "increase", self._increase_payload, methods=["Post"])
+self.app.add_url_rule("/api/counter/decrease", "decrease", self._decrease_payload, methods=["Post"])
+self.app.add_url_rule("/api/counter/events", "events", self._stream_counter_events)
+```
+
+route 정리:
+- `/` -> `frontend/index.html` 응답
+- `/api/counter` -> 현재 count 값만 조회
+- `/api/counter/increase` -> count를 1 증가
+- `/api/counter/decrease` -> count를 1 감소
+- `/api/counter/events` -> count 변경을 SSE 방식으로 계속 전달
+
+```python
+def _serve_index(self):
+    return send_from_directory(self.frontend_dir, "index.html")
+```
+
+`send_from_directory()`는 특정 폴더에서 파일을 찾아서 보내는 함수이다.<br>
+여기서는 frontend 폴더의 `index.html`을 보낸다.
+
+```python
+def _counter_payload(self):
+    with self._lock:
+        return {"count": self._count}
+```
+
+현재 count 값을 JSON으로 반환한다.<br>
+`with self._lock:`을 사용해서 count를 읽는 동안 다른 thread와 동시에 꼬이지 않게 한다.
+
+```python
+def _broadcast_counter(self, payload):
+    for client_queue in list(self._event_clients):
+        client_queue.put(payload)
+```
+
+SSE로 연결된 client들에게 변경된 count를 뿌리는 함수이다.<br>
+`list(self._event_clients)`로 복사해서 순회한다.
+
+```python
+def _increase_payload(self):
+    with self._lock:
+        self._count += 1
+        payload = {"count": self._count}
+    self._broadcast_counter(payload)
+    return payload
+
+def _decrease_payload(self):
+    with self._lock:
+        self._count -= 1
+        payload = {"count": self._count}
+    self._broadcast_counter(payload)
+    return payload
+```
+
+Flask에서는 dict를 return하면 JSON response로 바꿔준다.<br>
+버튼을 누르면 frontend JavaScript가 이 API를 호출하고, 응답의 `count` 값을 화면에 표시한다.
+
+추가된 부분:
+- count를 바꿀 때 `Lock`을 사용한다
+- count가 바뀐 뒤 `_broadcast_counter(payload)`를 호출한다
+- 그래서 버튼을 누른 창뿐 아니라 event stream을 듣고 있는 쪽에도 새 값이 전달된다
+
+```python
+def _stream_counter_events(self):
+    client_queue = queue.Queue()
+    with self._lock:
+        self._event_clients.append(client_queue)
+        client_queue.put({"count": self._count})
+
+    def eventStream():
+        try:
+            while True:
+                payload = client_queue.get()
+                yield f"data: {json.dumps(payload)}\n\n"
+        finally:
+            with self._lock:
+                if client_queue in self._event_clients:
+                    self._event_clients.remove(client_queue)
+    return Response(eventStream(), mimetype="text/event-stream")
+```
+
+`/api/counter/events` route는 Server-Sent Events(SSE) 방식이다.<br>
+browser 쪽에서는 `EventSource('/api/counter/events')`로 연결할 수 있다.
+
+SSE 데이터 형식은 대략 이런 모양이다.
+
+```text
+data: {"count": 3}
+
+```
+
+중요한 부분:
+- client마다 `queue.Queue()`를 하나 만든다
+- 연결되자마자 현재 count를 queue에 넣어준다
+- count가 바뀌면 `_broadcast_counter()`가 각 queue에 payload를 넣는다
+- `yield`가 계속 응답을 흘려보내는 역할을 한다
+- 연결이 끊기면 `finally`에서 client queue를 목록에서 제거한다
+
+```python
+@property
+def base_url(self):
+    return f"http://127.0.0.1:{self.port}"
+```
+
+`base_url`은 webview가 열 local server 주소이다.<br>
+현재는 고정 port를 쓰기 때문에 `http://127.0.0.1:11722` 형태가 된다.
+
+```python
+def _isServerReady(self):
+    try:
+        with request.urlopen(f"{self.base_url}/api/counter", timeout=1) as resp:
+            return resp.status == 200
+    except (OSError, error.URLError):
+        return False
+```
+
+이미 server가 실행 중인지 확인하는 함수이다.<br>
+`/api/counter`로 요청을 보내서 HTTP status가 `200`이면 server가 살아 있다고 판단한다.
+
+```python
+def start(self):
+    if self._isServerReady():
+        print("서버가 존재해서 리턴한다.")
+        return
+    print("서버가 존재 하지 않는다.")
+    try:
+        self._server = make_server("127.0.0.1", self.port, self.app, threaded=True)
+    except OSError as exc:
+        if exc.errno in {10048, 98} and self._isServerReady():
+            return
+        raise
+    self._thread = Thread(target=self._server.serve_forever, daemon=True)
+    self._thread.start()
+    self._owns_server = True
+
+def stop(self):
+    if not self._owns_server or self._server is None or self._thread is None:
+        return
+    self._server.shutdown()
+    self._thread.join(timeout=1)
+```
+
+`start()`는 먼저 이미 server가 있는지 확인한다.<br>
+없으면 `make_server()`로 server를 만들고 thread를 시작한다.
+
+`threaded=True`는 여러 요청을 동시에 처리할 수 있게 한다.<br>
+SSE 연결은 계속 열려 있으므로, 일반 API 요청도 같이 처리하려면 threaded server가 필요하다.
+
+`stop()`은 내가 만든 server일 때만 종료한다.<br>
+이미 떠 있던 server를 재사용한 경우에는 마음대로 끄지 않도록 `_owns_server`를 확인한다.
+
+정리:
+- Flask server는 frontend 파일을 제공한다
+- counter 값은 Python 객체의 `self._count`에 저장된다
+- API가 호출될 때마다 count를 바꾸고 JSON으로 돌려준다
+- `/api/counter`를 추가해서 현재 상태 조회가 가능해졌다
+- `/api/counter/events`를 추가해서 SSE 실시간 갱신이 가능해졌다
+- `Lock`을 실제로 사용해서 count와 client 목록을 보호한다
+- 고정 port + `_isServerReady()`로 이미 실행 중인 server를 재사용하려는 구조이다
+- `make_server(threaded=True) + Thread` 구조라서 webview GUI와 server를 같이 사용할 수 있다
+
+## click/frontend/index.html
+
+```html
+<!DOCTYPE html>
+<html lang="ko">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Desk Clock</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+```
+
+HTML 문서 시작 부분이다.
+
+- `lang="ko"` -> 한국어 문서
+- `charset="UTF-8"` -> 한글 깨짐 방지
+- `title` -> 창 제목이나 browser tab 제목
+- `style.css` -> frontend 디자인 연결
+
+주의:
+- title이 `Desk Clock`으로 되어 있는데, 실제 화면은 click counter이다.
+- 더 맞게 쓰려면 `Click Counter` 같은 제목이 자연스럽다.
+
+```html
+<body>
+    <main class="counter">
+        <p class="label">클릭 카운터</p>
+        <div id="count" class="count">0</div>
+        <div class="action" aria-label="counter controls">
+            <button id="decrease" class="button secondary" type="button">-</button>
+            <button id="increase" class="button primary" type="button">+</button>
+        </div>
+    </main> 
+</body>
+<script src="app.js"></script>
+```
+
+화면 구조:
+- `main.counter` -> counter 전체 영역
+- `p.label` -> "클릭 카운터" 글자
+- `div#count` -> 숫자가 표시되는 자리
+- `button#decrease` -> 감소 버튼
+- `button#increase` -> 증가 버튼
+- `script src="app.js"` -> 버튼 동작을 담당하는 JavaScript 연결
+
+`id`는 JavaScript에서 특정 element를 찾을 때 사용한다.<br>
+`class`는 CSS로 여러 element를 꾸밀 때 주로 사용한다.
+
+정리:
+- HTML은 화면에 필요한 자리만 만든다
+- 실제 count 변경은 Python Flask API와 JavaScript가 처리한다
+- `index.html`의 `id` 값과 `app.js`의 `getElementById()` 값이 서로 맞아야 한다
+
+## click counter 동작 흐름
+
+```text
+main.py 실행
+-> CounterApiServer 생성
+-> 127.0.0.1:11722에 server가 이미 있는지 확인
+-> 없으면 Flask server start
+-> 있으면 기존 server 재사용
+-> webview 창 생성
+-> webview가 server.base_url 접속
+-> Flask가 index.html, style.css, app.js 제공
+-> app.js가 /api/counter/events에 EventSource 연결
+-> 사용자가 + 또는 - 클릭
+-> app.js가 Flask API 호출
+-> server_flask.py가 count 수정 후 JSON 반환
+-> server_flask.py가 SSE client에도 변경된 count 전달
+-> app.js가 화면 숫자 변경
+```
+
+`+` 버튼을 누르면 보통 이런 요청이 간다.
+
+```text
+POST /api/counter/increase
+```
+
+응답은 이런 형태이다.
+
+```json
+{
+  "count": 1
+}
+```
+
+`-` 버튼을 누르면 이런 요청이 간다.
+
+```text
+POST /api/counter/decrease
+```
+
+응답은 이런 형태이다.
+
+```json
+{
+  "count": 0
+}
+```
+
+현재 값만 확인할 때는 이런 요청을 사용할 수 있다.
+
+```text
+GET /api/counter
+```
+
+응답은 현재 count이다.
+
+```json
+{
+  "count": 3
+}
+```
+
+실시간 event 연결은 이런 주소를 사용한다.
+
+```text
+GET /api/counter/events
+```
+
+SSE 응답은 `data:` 형식으로 계속 이어진다.
+
+```text
+data: {"count": 3}
+```
+
+수정 의도 정리:
+- 기존에는 `app.js`에 `/api/counter/events`, `/api/counter` 호출이 있었지만 backend route가 없었다.
+- 지금은 backend에 두 route를 추가해서 frontend 코드와 맞췄다.
+- 고정 port `11722`를 사용해서 이미 실행 중인 server를 확인하고 재사용하려는 구조로 바뀌었다.
+- `try/finally`로 webview 종료 후 server를 정리하려는 코드가 추가되었다.
+- SSE 연결 때문에 Flask server를 `threaded=True`로 실행한다.
+
+정리:
+- 이번 예제는 pywebview + Flask + HTML/CSS/JS 조합이다
+- Python은 local API server 역할
+- HTML은 화면 구조
+- JavaScript는 버튼 event와 API 호출
+- SSE는 server에서 frontend로 count 변경을 밀어주는 역할
+- webview는 이 local web page를 desktop app 창처럼 보여준다
