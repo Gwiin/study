@@ -4992,4 +4992,176 @@ uv run python -c "import gi; gi.require_version('Gtk', '3.0'); import webview.pl
 - Linux에서는 GTK backend를 쓰기 때문에 `PyGObject`, GTK system package가 필요하다
 - `ModuleNotFoundError: No module named 'gi'`가 나오면 GTK/PyGObject 쪽 설치가 안 된 것이다
 
+## timer 폴더 구조
+
+`webview_example/timer`는 Python backend와 HTML frontend를 같이 사용하는 구조이다.<br>
+Flask가 local server를 열고, pywebview가 그 주소를 desktop 창 안에 띄운다.
+
+폴더 구조
+```text
+timer/
+├── main.py
+├── backend/
+│   └── server_flask.py
+└── frontend/
+    ├── index.html
+    ├── style.css
+    └── app.js
+```
+
+- `main.py`는 프로그램 시작점이다
+- `backend/server_flask.py`는 Flask server와 clock API를 담당한다
+- `frontend/index.html`은 webview 창 안에 보이는 화면 구조이다
+- `frontend/style.css`는 화면 꾸미기이다
+- `frontend/app.js`는 `/api/clock`에서 시간을 가져와 화면에 넣는다
+
+## timer/main.py
+
+```python
+from pathlib import Path
+
+import webview
+from backend.server_flask import ClockApiServer
+
+BASE_DIR = Path(__file__).resolve().parent
+FRONTEND_DIR = BASE_DIR / "frontend"
+```
+
+`Path(__file__).resolve().parent`는 현재 `main.py`가 있는 폴더를 기준으로 경로를 만든다.<br>
+그래서 터미널 위치가 달라도 `frontend` 폴더를 찾을 수 있다.
+
+```python
+def main():
+    server = ClockApiServer(FRONTEND_DIR)
+    server.start()
+
+    webview.create_window("Desk Clock", url=server.base_url, width=460, height=320, resizable=True)
+    webview.start()
+```
+
+흐름:
+- `ClockApiServer(FRONTEND_DIR)`로 Flask server 객체를 만든다
+- `server.start()`로 server를 background thread에서 실행한다
+- `webview.create_window()`로 desktop 창을 만든다
+- `url=server.base_url`로 Flask local server 주소를 webview에 연결한다
+- `webview.start()`가 GUI event loop를 시작한다
+
+정리:
+- pywebview는 HTML 문자열도 띄울 수 있지만, 여기서는 Flask URL을 띄운다
+- backend와 frontend를 나누면 API와 화면을 따로 생각할 수 있다
+
+## backend/server_flask.py
+
+```python
+from flask import Flask
+from threading import Thread
+from werkzeug.serving import make_server
+import socket
+from datetime import datetime
+```
+
+사용한 module:
+- `Flask`는 web server와 route를 만든다
+- `Thread`는 Flask server를 background에서 돌릴 때 사용한다
+- `make_server`는 Flask 개발 server를 코드에서 직접 제어하기 위해 사용한다
+- `socket`은 비어있는 port를 찾을 때 사용한다
+- `datetime`은 현재 시간을 만들 때 사용한다
+
+```python
+WEEKDAYS = ["월요일","화요일","수요일","목요일","금요일","토요일","일요일"]
+
+def getClockpayload():
+    now = datetime.now()
+    return {"time": now.strftime("%H:%M:%S"), "date": f"{now.year}년{now.month}월{now.day}일{WEEKDAYS[now.weekday()]}"}
+```
+
+`getClockpayload()`는 현재 시간을 dict로 반환한다.
+
+예상되는 형태
+```text
+{
+  "time": "11:30:25",
+  "date": "2026년5월28일목요일"
+}
+```
+
+Flask가 dict를 반환하면 JSON response로 바꿔준다.
+
+```python
+def getFreePort():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1",0))
+        return int(sock.getsockname()[1])
+```
+
+`port`에 `0`을 넣으면 OS가 사용 가능한 port를 하나 골라준다.<br>
+고정 port를 쓰면 이미 사용 중일 때 충돌할 수 있어서, 빈 port를 찾는 방식으로 작성했다.
+
+```python
+class ClockApiServer:
+    def  __init__(self, frontend_dir):
+        self.port = getFreePort()
+        self.app = Flask(__name__, static_folder=str(frontend_dir), static_url_path="")
+```
+
+`static_folder`를 `frontend`로 지정해서 HTML, CSS, JS 파일을 Flask가 제공할 수 있게 한다.<br>
+`static_url_path=""`는 정적 파일 경로 앞에 `/static` 같은 prefix를 붙이지 않겠다는 뜻이다.
+
+```python
+self.app.add_url_rule("/","index", lambda: self.app.send_static_file("index.html"))
+self.app.add_url_rule("/api/clock","clock",lambda: getClockpayload())
+```
+
+route 정리:
+- `/` 요청이 오면 `frontend/index.html`을 보낸다
+- `/api/clock` 요청이 오면 현재 시간 dict를 JSON으로 보낸다
+
+```python
+@property
+def base_url(self):
+    return f"http://127.0.0.1:{self.port}"
+```
+
+`base_url`은 webview가 열 local server 주소이다.<br>
+주의: `http://`처럼 slash 2개가 들어가야 정상 URL이다.
+
+## frontend/index.html
+
+```html
+<!DOCTYPE html>
+<html lang="ko">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Desk Clock</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+```
+
+`lang="ko"`는 문서 언어가 한국어라는 뜻이다.<br>
+`meta charset="UTF-8"`이 없으면 한글이 깨질 수 있다.<br>
+`link rel="stylesheet"`로 `style.css`를 연결한다.
+
+```html
+<body>
+    <main class="clock">
+        <div id="time" class="time">--:--:--</div>
+        <div id="date" class="date">----</div>
+    </main>
+</body>
+<script src="app.js"></script>
+```
+
+화면에는 시간과 날짜가 들어갈 자리만 먼저 만들어 둔다.
+
+- `id="time"`은 JavaScript에서 시간 값을 넣을 위치이다
+- `id="date"`는 JavaScript에서 날짜 값을 넣을 위치이다
+- `class="time"`, `class="date"`는 CSS로 꾸밀 때 사용한다
+- `app.js`는 Flask의 `/api/clock` API를 호출해서 값을 채운다
+
+정리:
+- `main.py`는 desktop 창을 여는 시작점
+- Flask backend는 local web server 역할
+- frontend는 HTML/CSS/JS로 화면을 만든다
+- webview는 browser처럼 local server 화면을 보여준다
+- Python만 쓰는 GUI라기보다, Python backend + web frontend를 붙이는 방식이다
 

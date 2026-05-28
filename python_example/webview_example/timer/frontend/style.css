@@ -1,0 +1,115 @@
+* {
+    box-sizing: border-box;
+}
+
+:root {
+    color-scheme: light;
+    font-family:
+        D2Coding, "Noto Sans CJK KR", "Noto Sans KR", "Malgun Gothic",
+        ui-monospace, SFMono-Regular, Consolas, monospace;
+    color: #17202a;
+    background: #eef4fa;
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    display: grid;
+    place-items: center;
+    padding: 22px;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 18% 14%, rgba(65, 132, 218, 0.2), transparent 34%),
+        radial-gradient(circle at 82% 86%, rgba(235, 153, 74, 0.18), transparent 32%),
+        linear-gradient(135deg, #f8fbff 0%, #e9f1f8 52%, #fbf3e8 100%);
+}
+
+.clock {
+    position: relative;
+    width: min(100%, 420px);
+    min-height: 230px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 18px;
+    padding: 34px 30px 30px;
+    border: 1px solid rgba(46, 67, 91, 0.14);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.7)),
+        rgba(255, 255, 255, 0.84);
+    box-shadow:
+        0 22px 58px rgba(32, 47, 68, 0.2),
+        0 2px 8px rgba(32, 47, 68, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.clock::before {
+    content: "Desk Clock";
+    position: absolute;
+    top: 18px;
+    left: 24px;
+    color: #60748a;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.clock::after {
+    content: "";
+    position: absolute;
+    top: 18px;
+    right: 24px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #4fa85f;
+    box-shadow: 0 0 0 6px rgba(79, 168, 95, 0.14);
+}
+
+.time {
+    margin-top: 18px;
+    color: #162331;
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1;
+    text-align: center;
+    letter-spacing: 0;
+    text-shadow: 0 2px 0 rgba(255, 255, 255, 0.75);
+    font-variant-numeric: tabular-nums;
+}
+
+.date {
+    align-self: center;
+    max-width: 100%;
+    padding: 10px 16px;
+    border: 1px solid rgba(77, 103, 130, 0.14);
+    border-radius: 8px;
+    background: rgba(244, 248, 252, 0.82);
+    color: #40566d;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: center;
+    letter-spacing: 0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+@media (max-width: 360px) {
+    body {
+        padding: 16px;
+    }
+
+    .clock {
+        min-height: 210px;
+        padding: 32px 18px 24px;
+    }
+
+    .time {
+        font-size: 52px;
+    }
+
+    .date {
+        font-size: 17px;
+    }
+}
