@@ -25,15 +25,18 @@ TITLE = "D-Day 계산"
 
 
 def days_until(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("D-Day 계산 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    from datetime import datetime
+
+    start = datetime.strptime(str(args[0]), "%Y-%m-%d").date()
+    end = datetime.strptime(str(args[1]), "%Y-%m-%d").date()
+    return (end - start).days
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(days_until("2026-05-20", "2026-05-25"))
 
 
 if __name__ == "__main__":

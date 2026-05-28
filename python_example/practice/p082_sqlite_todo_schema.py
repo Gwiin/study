@@ -24,16 +24,40 @@ TOPIC = "sqlite3"
 TITLE = "SQLite Todo CRUD"
 
 
-def TodoRepository(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("SQLite Todo CRUD 문제를 구현하세요.")
+import sqlite3
+
+
+class TodoRepository:
+    """SQLite 기반 할 일 저장소입니다."""
+
+    def __init__(self, path=":memory:"):
+        self.conn = sqlite3.connect(path)
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, done INTEGER DEFAULT 0)"
+        )
+        self.conn.commit()
+
+    def add(self, title):
+        cursor = self.conn.execute("INSERT INTO todos (title, done) VALUES (?, 0)", (title,))
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def complete(self, todo_id):
+        self.conn.execute("UPDATE todos SET done = 1 WHERE id = ?", (todo_id,))
+        self.conn.commit()
+
+    def list_open(self):
+        cursor = self.conn.execute("SELECT id, title FROM todos WHERE done = 0 ORDER BY id")
+        return cursor.fetchall()
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    repo = TodoRepository()
+    todo_id = repo.add("study")
+    print(repo.list_open())
+    repo.complete(todo_id)
 
 
 if __name__ == "__main__":

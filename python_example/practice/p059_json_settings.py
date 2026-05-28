@@ -25,15 +25,23 @@ TITLE = "JSON 설정 읽기"
 
 
 def load_settings(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("JSON 설정 읽기 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    import json
+    from pathlib import Path
+
+    path = Path(args[0])
+    default = args[1] if len(args) > 1 else kwargs.get("default", {})
+    if not path.exists():
+        return dict(default)
+    with path.open(encoding="utf-8") as file:
+        data = json.load(file)
+    return data
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(load_settings("missing.json", {"theme": "light"}))
 
 
 if __name__ == "__main__":

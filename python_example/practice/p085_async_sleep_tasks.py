@@ -24,16 +24,24 @@ TOPIC = "asyncio"
 TITLE = "asyncio 동시 실행"
 
 
-def run_async_tasks(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("asyncio 동시 실행 문제를 구현하세요.")
+import asyncio
+
+
+async def run_async_tasks(*args, **kwargs):
+    """비동기 sleep 작업을 동시에 실행하고 이름을 반환합니다."""
+    tasks = args[0]
+
+    async def worker(name, delay):
+        await asyncio.sleep(delay)
+        return name
+
+    return await asyncio.gather(*(worker(name, delay) for name, delay in tasks))
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(asyncio.run(run_async_tasks([("a", 0.01), ("b", 0.01)])))
 
 
 if __name__ == "__main__":

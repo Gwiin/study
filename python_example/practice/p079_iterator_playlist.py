@@ -24,16 +24,20 @@ TOPIC = "iterator"
 TITLE = "플레이리스트 iterator"
 
 
-def Playlist(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("플레이리스트 iterator 문제를 구현하세요.")
+class Playlist:
+    """노래 목록을 순회할 수 있는 이터러블입니다."""
+
+    def __init__(self, songs):
+        self.songs = list(songs)
+
+    def __iter__(self):
+        return iter(self.songs)
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(list(Playlist(["a", "b"])))
 
 
 if __name__ == "__main__":

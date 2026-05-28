@@ -25,15 +25,18 @@ TITLE = "최고점 학생"
 
 
 def top_student(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("최고점 학생 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    scores = dict(args[0])
+    if not scores:
+        raise ValueError("점수 딕셔너리가 비어 있습니다.")
+    name = sorted(scores.items(), key=lambda item: (-item[1], item[0]))[0]
+    return name
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(top_student({"kim": 90, "lee": 90}))
 
 
 if __name__ == "__main__":

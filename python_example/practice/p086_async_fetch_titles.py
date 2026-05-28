@@ -24,16 +24,32 @@ TOPIC = "asyncio/aiohttp"
 TITLE = "비동기 fetch 골격"
 
 
-def fetch_titles(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("비동기 fetch 골격 문제를 구현하세요.")
+import asyncio
+import re
+
+
+async def fetch_titles(*args, **kwargs):
+    """URL 목록의 HTML title을 비동기로 가져옵니다."""
+    urls = list(args[0])
+    try:
+        import aiohttp
+    except ImportError as error:
+        raise ImportError("aiohttp가 필요합니다.") from error
+
+    async def fetch_one(session, url):
+        async with session.get(url) as response:
+            html = await response.text()
+            match = re.search(r"<title>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+            return match.group(1).strip() if match else ""
+
+    async with aiohttp.ClientSession() as session:
+        return await asyncio.gather(*(fetch_one(session, url) for url in urls))
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print("aiohttp 설치 후 fetch_titles([...])로 실행하세요.")
 
 
 if __name__ == "__main__":

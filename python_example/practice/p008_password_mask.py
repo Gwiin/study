@@ -25,15 +25,17 @@ TITLE = "비밀번호 마스킹"
 
 
 def mask_password(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("비밀번호 마스킹 문제를 구현하세요.")
+    """문자열 앞 2글자만 남기고 나머지는 *로 바꿉니다."""
+    password = str(args[0])
+    if len(password) <= 2:
+        return password
+    return password[:2] + "*" * (len(password) - 2)
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(mask_password("abcdef"))
 
 
 if __name__ == "__main__":

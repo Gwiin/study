@@ -25,15 +25,17 @@ TITLE = "가변 인자 통계"
 
 
 def stats(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("가변 인자 통계 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    numbers = list(args)
+    if not numbers:
+        return {"count": 0, "min": None, "max": None, "average": 0.0}
+    return {"count": len(numbers), "min": min(numbers), "max": max(numbers), "average": sum(numbers) / len(numbers)}
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(stats(1, 2, 3))
 
 
 if __name__ == "__main__":

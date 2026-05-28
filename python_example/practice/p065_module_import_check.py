@@ -25,15 +25,17 @@ TITLE = "모듈 설치 확인"
 
 
 def can_import(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("모듈 설치 확인 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    import importlib.util
+
+    module_name = str(args[0])
+    return importlib.util.find_spec(module_name) is not None
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(can_import("sys"))
 
 
 if __name__ == "__main__":

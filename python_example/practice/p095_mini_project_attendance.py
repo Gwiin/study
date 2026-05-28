@@ -24,16 +24,35 @@ TOPIC = "project"
 TITLE = "미니 프로젝트 출석부"
 
 
-def AttendanceBook(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("미니 프로젝트 출석부 문제를 구현하세요.")
+class AttendanceBook:
+    """학생 출석 여부를 관리합니다."""
+
+    def __init__(self, students):
+        self.students = list(students)
+        self.records = {student: False for student in self.students}
+
+    def mark(self, student, present=True):
+        if student not in self.records:
+            raise ValueError("등록되지 않은 학생입니다.")
+        self.records[student] = present
+
+    def absentees(self):
+        return [student for student, present in self.records.items() if not present]
+
+    def rate(self):
+        if not self.records:
+            return 0.0
+        present = sum(1 for value in self.records.values() if value)
+        return present / len(self.records)
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    book = AttendanceBook(["kim", "lee"])
+    book.mark("kim")
+    print(book.absentees())
+    print(book.rate())
 
 
 if __name__ == "__main__":

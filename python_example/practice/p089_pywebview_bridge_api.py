@@ -24,16 +24,38 @@ TOPIC = "pywebview"
 TITLE = "PyWebView Bridge API"
 
 
-def BridgeApi(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("PyWebView Bridge API 문제를 구현하세요.")
+from pathlib import Path
+
+
+class BridgeApi:
+    """pywebview에서 호출할 수 있는 파일 API 예시입니다."""
+
+    def __init__(self, root="."):
+        self.root = Path(root).resolve()
+
+    def _path(self, name):
+        path = (self.root / name).resolve()
+        if self.root not in path.parents and path != self.root:
+            raise ValueError("허용되지 않은 경로입니다.")
+        return path
+
+    def list_files(self):
+        return sorted(path.name for path in self.root.iterdir() if path.is_file())
+
+    def read_text(self, name):
+        return self._path(name).read_text(encoding="utf-8")
+
+    def save_text(self, name, text):
+        path = self._path(name)
+        path.write_text(text, encoding="utf-8")
+        return True
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    api = BridgeApi(Path(__file__).parent)
+    print(isinstance(api.list_files(), list))
 
 
 if __name__ == "__main__":

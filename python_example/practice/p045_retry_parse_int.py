@@ -25,15 +25,19 @@ TITLE = "기본값 있는 정수 변환"
 
 
 def parse_int_or_default(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("기본값 있는 정수 변환 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    value = args[0]
+    default = args[1] if len(args) > 1 else kwargs.get("default", 0)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(parse_int_or_default("10", 0))
 
 
 if __name__ == "__main__":

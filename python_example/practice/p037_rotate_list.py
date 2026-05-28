@@ -25,15 +25,18 @@ TITLE = "리스트 회전"
 
 
 def rotate_right(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("리스트 회전 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    items = list(args[0])
+    if not items:
+        return []
+    count = int(args[1]) % len(items)
+    return items[-count:] + items[:-count] if count else items[:]
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(rotate_right([1, 2, 3, 4], 1))
 
 
 if __name__ == "__main__":

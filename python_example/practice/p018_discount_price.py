@@ -25,15 +25,17 @@ TITLE = "할인가 계산"
 
 
 def discount_price(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("할인가 계산 문제를 구현하세요.")
+    """가격과 할인율을 받아 할인된 가격을 반환합니다."""
+    price = float(args[0])
+    rate = float(args[1])
+    discounted = price * (100 - rate) / 100
+    return int(discounted) if discounted.is_integer() else discounted
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(discount_price(10000, 15))
 
 
 if __name__ == "__main__":

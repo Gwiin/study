@@ -25,15 +25,15 @@ TITLE = "구구단 표 만들기"
 
 
 def gugudan_table(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("구구단 표 만들기 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    return [(dan, i, dan * i) for dan in range(2, 10) for i in range(1, 10)]
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(gugudan_table()[:5])
+    print(len(gugudan_table()))
 
 
 if __name__ == "__main__":

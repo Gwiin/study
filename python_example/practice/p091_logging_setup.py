@@ -24,16 +24,26 @@ TOPIC = "logging"
 TITLE = "로깅 설정"
 
 
+import logging
+
+
 def setup_logger(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("로깅 설정 문제를 구현하세요.")
+    """이름과 레벨을 받아 로거를 설정해 반환합니다."""
+    name = args[0] if args else kwargs.get("name", "practice")
+    level = kwargs.get("level", logging.INFO)
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+        logger.addHandler(handler)
+    return logger
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(setup_logger("demo").name)
 
 
 if __name__ == "__main__":

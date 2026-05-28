@@ -24,16 +24,35 @@ TOPIC = "pickle/file"
 TITLE = "연락처 pickle 저장"
 
 
+import pickle
+from pathlib import Path
+
+
+def save_contacts(path, contacts):
+    path = Path(path)
+    with path.open("wb") as file:
+        pickle.dump(contacts, file)
+
+
+def load_contacts(path):
+    path = Path(path)
+    with path.open("rb") as file:
+        return pickle.load(file)
+
+
 def save_load_contacts(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("연락처 pickle 저장 문제를 구현하세요.")
+    """연락처를 pickle로 저장한 뒤 다시 읽어 반환합니다."""
+    path = args[0]
+    contacts = args[1]
+    save_contacts(path, contacts)
+    return load_contacts(path)
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    path = Path(__file__).with_suffix(".pkl")
+    print(save_load_contacts(path, {"kim": "010"}))
 
 
 if __name__ == "__main__":

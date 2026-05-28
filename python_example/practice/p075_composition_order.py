@@ -24,16 +24,38 @@ TOPIC = "composition"
 TITLE = "주문-상품 합성"
 
 
-def Order(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("주문-상품 합성 문제를 구현하세요.")
+from dataclasses import dataclass
+
+
+@dataclass
+class OrderItem:
+    name: str
+    price: int
+    quantity: int = 1
+
+    @property
+    def subtotal(self):
+        return self.price * self.quantity
+
+
+class Order:
+    def __init__(self):
+        self.items = []
+
+    def add_item(self, name, price, quantity=1):
+        self.items.append(OrderItem(name, price, quantity))
+
+    @property
+    def total(self):
+        return sum(item.subtotal for item in self.items)
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    order = Order()
+    order.add_item("book", 10000, 2)
+    print(order.total)
 
 
 if __name__ == "__main__":

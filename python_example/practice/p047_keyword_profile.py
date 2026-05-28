@@ -25,15 +25,14 @@ TITLE = "키워드 인자 프로필"
 
 
 def profile_lines(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("키워드 인자 프로필 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    return [f"{key}={value}" for key, value in sorted(kwargs.items())]
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(profile_lines(name="kim", age=20))
 
 
 if __name__ == "__main__":

@@ -24,16 +24,33 @@ TOPIC = "class/dict"
 TITLE = "재고 관리 클래스"
 
 
-def Inventory(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("재고 관리 클래스 문제를 구현하세요.")
+class Inventory:
+    """상품별 재고를 관리합니다."""
+
+    def __init__(self):
+        self.items = {}
+
+    def add(self, name, quantity):
+        self.items[name] = self.items.get(name, 0) + quantity
+        return self.items[name]
+
+    def remove(self, name, quantity):
+        if self.get_stock(name) < quantity:
+            raise ValueError("재고가 부족합니다.")
+        self.items[name] -= quantity
+        return self.items[name]
+
+    def get_stock(self, name):
+        return self.items.get(name, 0)
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    inventory = Inventory()
+    inventory.add("pen", 5)
+    inventory.remove("pen", 2)
+    print(inventory.get_stock("pen"))
 
 
 if __name__ == "__main__":

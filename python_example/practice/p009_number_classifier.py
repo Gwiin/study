@@ -25,15 +25,22 @@ TITLE = "숫자 분류"
 
 
 def classify_number(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("숫자 분류 문제를 구현하세요.")
+    """정수를 양수/음수/0, 짝수/홀수로 분류합니다."""
+    number = int(args[0])
+    if number > 0:
+        sign = "positive"
+    elif number < 0:
+        sign = "negative"
+    else:
+        sign = "zero"
+    parity = "even" if number % 2 == 0 else "odd"
+    return f"{sign} {parity}"
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(classify_number(-3))
 
 
 if __name__ == "__main__":

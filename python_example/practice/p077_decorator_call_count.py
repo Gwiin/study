@@ -24,16 +24,32 @@ TOPIC = "decorator"
 TITLE = "호출 횟수 decorator"
 
 
-def count_calls(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("호출 횟수 decorator 문제를 구현하세요.")
+from functools import wraps
+
+
+def count_calls(func):
+    """함수 호출 횟수를 wrapped.calls에 기록하는 데코레이터입니다."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        wrapper.calls += 1
+        return func(*args, **kwargs)
+
+    wrapper.calls = 0
+    return wrapper
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+
+    @count_calls
+    def hello():
+        return "hi"
+
+    hello()
+    hello()
+    print(hello.calls)
 
 
 if __name__ == "__main__":

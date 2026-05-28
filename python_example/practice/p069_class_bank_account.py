@@ -24,16 +24,32 @@ TOPIC = "class"
 TITLE = "은행 계좌 클래스"
 
 
-def BankAccount(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("은행 계좌 클래스 문제를 구현하세요.")
+class BankAccount:
+    """입금, 출금, 잔액 조회가 가능한 은행 계좌입니다."""
+
+    def __init__(self, balance=0):
+        self.balance = balance
+
+    def deposit(self, amount):
+        if amount < 0:
+            raise ValueError("입금액은 0 이상이어야 합니다.")
+        self.balance += amount
+        return self.balance
+
+    def withdraw(self, amount):
+        if amount > self.balance:
+            raise ValueError("잔액이 부족합니다.")
+        self.balance -= amount
+        return self.balance
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    account = BankAccount(1000)
+    account.deposit(500)
+    account.withdraw(300)
+    print(account.balance)
 
 
 if __name__ == "__main__":

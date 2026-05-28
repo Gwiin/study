@@ -25,15 +25,15 @@ TITLE = "이니셜 만들기"
 
 
 def make_initials(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("이니셜 만들기 문제를 구현하세요.")
+    """공백으로 구분된 이름에서 각 단어의 첫 글자를 대문자로 모읍니다."""
+    full_name = str(args[0]).strip()
+    return "".join(part[0].upper() for part in full_name.split()) if full_name else ""
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(make_initials("bind soft academy"))
 
 
 if __name__ == "__main__":

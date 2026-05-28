@@ -24,16 +24,25 @@ TOPIC = "json/api"
 TITLE = "API 응답 파싱"
 
 
+import json
+
+
 def parse_api_response(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("API 응답 파싱 문제를 구현하세요.")
+    """API JSON 문자열을 파싱하고 실패하면 {'ok': False}를 반환합니다."""
+    raw = args[0]
+    try:
+        data = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return {"ok": False}
+    if isinstance(data, dict):
+        return data
+    return {"ok": True, "data": data}
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(parse_api_response("not json"))
 
 
 if __name__ == "__main__":

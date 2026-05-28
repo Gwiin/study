@@ -24,16 +24,35 @@ TOPIC = "project"
 TITLE = "미니 프로젝트 단어장"
 
 
-def VocabularyBook(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("미니 프로젝트 단어장 문제를 구현하세요.")
+import random
+
+
+class VocabularyBook:
+    """단어를 추가, 검색, 퀴즈로 사용할 수 있는 단어장입니다."""
+
+    def __init__(self):
+        self.words = {}
+
+    def add(self, word, meaning):
+        self.words[word] = meaning
+
+    def search(self, word):
+        return self.words.get(word)
+
+    def quiz(self, seed=None):
+        if not self.words:
+            return None
+        rng = random.Random(seed)
+        word = rng.choice(list(self.words.keys()))
+        return word, self.words[word]
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    book = VocabularyBook()
+    book.add("apple", "사과")
+    print(book.quiz(seed=1))
 
 
 if __name__ == "__main__":

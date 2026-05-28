@@ -25,15 +25,17 @@ TITLE = "자릿수 합 재귀"
 
 
 def digit_sum(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("자릿수 합 재귀 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    n = abs(int(args[0]))
+    if n < 10:
+        return n
+    return n % 10 + digit_sum(n // 10)
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(digit_sum(12345))
 
 
 if __name__ == "__main__":

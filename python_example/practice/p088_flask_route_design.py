@@ -25,15 +25,33 @@ TITLE = "Flask 라우트 설계"
 
 
 def create_app(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("Flask 라우트 설계 문제를 구현하세요.")
+    """간단한 Flask 앱을 생성합니다."""
+    try:
+        from flask import Flask, jsonify
+    except ImportError as error:
+        raise ImportError("flask가 필요합니다.") from error
+
+    app = Flask(__name__)
+
+    @app.get("/")
+    def index():
+        return jsonify({"message": "hello"})
+
+    @app.get("/health")
+    def health():
+        return jsonify({"ok": True})
+
+    return app
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    try:
+        app = create_app()
+        print(app.name)
+    except ImportError as error:
+        print(error)
 
 
 if __name__ == "__main__":

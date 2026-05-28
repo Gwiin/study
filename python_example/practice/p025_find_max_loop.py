@@ -25,15 +25,21 @@ TITLE = "최댓값 찾기"
 
 
 def find_max(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("최댓값 찾기 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    numbers = list(args[0])
+    if not numbers:
+        raise ValueError("빈 리스트에서는 최댓값을 찾을 수 없습니다.")
+    maximum = numbers[0]
+    for number in numbers[1:]:
+        if number > maximum:
+            maximum = number
+    return maximum
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(find_max([3, 1, 7]))
 
 
 if __name__ == "__main__":

@@ -25,15 +25,25 @@ TITLE = "BMI 분류"
 
 
 def classify_bmi(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("BMI 분류 문제를 구현하세요.")
+    """키(cm)와 몸무게(kg)를 받아 BMI와 분류를 반환합니다."""
+    height_cm = float(args[0])
+    weight_kg = float(args[1])
+    bmi = round(weight_kg / ((height_cm / 100) ** 2), 2)
+    if bmi < 18.5:
+        category = "underweight"
+    elif bmi < 23:
+        category = "normal"
+    elif bmi < 25:
+        category = "overweight"
+    else:
+        category = "obese"
+    return bmi, category
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(classify_bmi(170, 65))
 
 
 if __name__ == "__main__":

@@ -25,15 +25,15 @@ TITLE = "회문 검사"
 
 
 def is_palindrome(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("회문 검사 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    cleaned = "".join(char.lower() for char in str(args[0]) if char.isalnum())
+    return cleaned == cleaned[::-1]
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(is_palindrome("A man a plan a canal Panama"))
 
 
 if __name__ == "__main__":

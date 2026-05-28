@@ -25,15 +25,18 @@ TITLE = "온도 변환기"
 
 
 def convert_temperature(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("온도 변환기 문제를 구현하세요.")
+    """섭씨를 화씨와 켈빈으로 변환해 소수점 2자리로 반환합니다."""
+    celsius = float(args[0])
+    return {
+        "fahrenheit": round(celsius * 9 / 5 + 32, 2),
+        "kelvin": round(celsius + 273.15, 2),
+    }
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(convert_temperature(25))
 
 
 if __name__ == "__main__":

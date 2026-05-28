@@ -24,16 +24,31 @@ TOPIC = "class/list"
 TITLE = "성적부 클래스"
 
 
-def ScoreBook(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("성적부 클래스 문제를 구현하세요.")
+class ScoreBook:
+    """학생별 점수를 저장하고 평균과 최고점을 계산합니다."""
+
+    def __init__(self):
+        self.scores = {}
+
+    def add_score(self, name, score):
+        self.scores.setdefault(name, []).append(score)
+
+    def average(self, name):
+        values = self.scores.get(name, [])
+        return sum(values) / len(values) if values else 0.0
+
+    def top(self):
+        averages = [(name, self.average(name)) for name in self.scores]
+        return max(averages, key=lambda item: (item[1], item[0])) if averages else None
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    book = ScoreBook()
+    book.add_score("kim", 90)
+    book.add_score("lee", 80)
+    print(book.top())
 
 
 if __name__ == "__main__":

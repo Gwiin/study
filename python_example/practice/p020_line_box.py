@@ -25,15 +25,16 @@ TITLE = "문자 박스 만들기"
 
 
 def make_line(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("문자 박스 만들기 문제를 구현하세요.")
+    """문자와 길이를 받아 해당 문자를 반복한 문자열을 반환합니다."""
+    char = str(args[0])
+    length = int(args[1])
+    return char * length
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(make_line("=", 5))
 
 
 if __name__ == "__main__":

@@ -25,15 +25,20 @@ TITLE = "중복 제거"
 
 
 def dedupe(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("중복 제거 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    seen = set()
+    result = []
+    for item in args[0]:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(dedupe([3, 1, 3, 2, 1]))
 
 
 if __name__ == "__main__":

@@ -25,15 +25,17 @@ TITLE = "연령대 구하기"
 
 
 def get_age_band(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("연령대 구하기 문제를 구현하세요.")
+    """나이를 받아 '20대' 같은 연령대를 반환합니다."""
+    age = int(args[0])
+    if age < 0:
+        raise ValueError("나이는 0 이상이어야 합니다.")
+    return f"{age // 10 * 10}대"
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(get_age_band(25))
 
 
 if __name__ == "__main__":

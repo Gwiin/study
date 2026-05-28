@@ -24,16 +24,26 @@ TOPIC = "dict/json"
 TITLE = "설정 병합"
 
 
+import os
+
+
 def merge_config(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("설정 병합 문제를 구현하세요.")
+    """default, file, env 설정을 env > file > default 우선순위로 병합합니다."""
+    default = dict(args[0]) if args else {}
+    file_config = dict(args[1]) if len(args) > 1 else {}
+    env_keys = args[2] if len(args) > 2 else file_config.keys() | default.keys()
+    result = {**default, **file_config}
+    for key in env_keys:
+        env_key = str(key).upper()
+        if env_key in os.environ:
+            result[key] = os.environ[env_key]
+    return result
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(merge_config({"mode": "default"}, {"mode": "file"}, ["mode"]))
 
 
 if __name__ == "__main__":

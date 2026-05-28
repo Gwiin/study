@@ -24,16 +24,25 @@ TOPIC = "argparse"
 TITLE = "CLI 인자 파서"
 
 
+import argparse
+
+
 def parse_args_and_build(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("CLI 인자 파서 문제를 구현하세요.")
+    """CLI 인자를 파싱해 문자열 리스트를 만듭니다."""
+    argv = list(args[0]) if args else []
+    parser = argparse.ArgumentParser()
+    parser.add_argument("items", nargs="*")
+    parser.add_argument("--upper", action="store_true")
+    namespace = parser.parse_args(argv)
+    if namespace.upper:
+        return [item.upper() for item in namespace.items]
+    return namespace.items
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(parse_args_and_build(["--upper", "a", "b"]))
 
 
 if __name__ == "__main__":

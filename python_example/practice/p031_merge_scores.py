@@ -25,15 +25,17 @@ TITLE = "점수 병합"
 
 
 def merge_scores(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("점수 병합 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    merged = dict(args[0])
+    for name, score in dict(args[1]).items():
+        merged[name] = merged.get(name, 0) + score
+    return merged
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(merge_scores({"a": 10}, {"a": 5, "b": 7}))
 
 
 if __name__ == "__main__":

@@ -24,16 +24,33 @@ TOPIC = "descriptor"
 TITLE = "양수 descriptor"
 
 
-def PositiveNumber(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("양수 descriptor 문제를 구현하세요.")
+class PositiveNumber:
+    """음수 대입을 막는 디스크립터입니다."""
+
+    def __set_name__(self, owner, name):
+        self.private_name = "_" + name
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        return getattr(instance, self.private_name, 0)
+
+    def __set__(self, instance, value):
+        if value < 0:
+            raise ValueError("0 이상의 숫자만 저장할 수 있습니다.")
+        setattr(instance, self.private_name, value)
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+
+    class Product:
+        price = PositiveNumber()
+
+    product = Product()
+    product.price = 100
+    print(product.price)
 
 
 if __name__ == "__main__":

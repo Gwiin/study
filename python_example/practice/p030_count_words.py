@@ -25,15 +25,17 @@ TITLE = "단어 빈도수"
 
 
 def count_words(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("단어 빈도수 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    counts = {}
+    for word in str(args[0]).lower().split():
+        counts[word] = counts.get(word, 0) + 1
+    return counts
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(count_words("Python python AI"))
 
 
 if __name__ == "__main__":

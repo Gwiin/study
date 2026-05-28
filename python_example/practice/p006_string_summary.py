@@ -25,15 +25,20 @@ TITLE = "문자열 요약"
 
 
 def summarize_text(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("문자열 요약 문제를 구현하세요.")
+    """문자열의 길이, 첫 글자, 마지막 글자, 대문자 변환 결과를 반환합니다."""
+    text = str(args[0])
+    return {
+        "length": len(text),
+        "first": text[0] if text else "",
+        "last": text[-1] if text else "",
+        "upper": text.upper(),
+    }
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(summarize_text("python"))
 
 
 if __name__ == "__main__":

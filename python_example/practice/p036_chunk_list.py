@@ -25,15 +25,18 @@ TITLE = "리스트 묶기"
 
 
 def chunk_list(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("리스트 묶기 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    items = list(args[0])
+    size = int(args[1])
+    if size <= 0:
+        raise ValueError("청크 크기는 1 이상이어야 합니다.")
+    return [items[i:i + size] for i in range(0, len(items), size)]
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(chunk_list([1, 2, 3, 4, 5], 2))
 
 
 if __name__ == "__main__":

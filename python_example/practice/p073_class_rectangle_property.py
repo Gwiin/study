@@ -24,16 +24,26 @@ TOPIC = "property"
 TITLE = "사각형 property"
 
 
-def Rectangle(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("사각형 property 문제를 구현하세요.")
+class Rectangle:
+    """너비와 높이로 넓이와 둘레를 계산합니다."""
+
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+
+    @property
+    def area(self):
+        return self.width * self.height
+
+    @property
+    def perimeter(self):
+        return 2 * (self.width + self.height)
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(Rectangle(3, 4).area)
 
 
 if __name__ == "__main__":

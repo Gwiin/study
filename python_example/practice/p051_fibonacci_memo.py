@@ -25,15 +25,20 @@ TITLE = "피보나치 메모이제이션"
 
 
 def fibonacci(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("피보나치 메모이제이션 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    n = int(args[0])
+    if n < 0:
+        raise ValueError("n은 0 이상이어야 합니다.")
+    memo = kwargs.get("memo", {0: 0, 1: 1})
+    if n not in memo:
+        memo[n] = fibonacci(n - 1, memo=memo) + fibonacci(n - 2, memo=memo)
+    return memo[n]
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(fibonacci(10))
 
 
 if __name__ == "__main__":

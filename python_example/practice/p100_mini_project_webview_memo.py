@@ -24,16 +24,43 @@ TOPIC = "project/pywebview"
 TITLE = "미니 프로젝트 WebView 메모 API"
 
 
-def MemoApi(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("미니 프로젝트 WebView 메모 API 문제를 구현하세요.")
+from pathlib import Path
+
+
+class MemoApi:
+    """메모를 파일로 생성, 조회, 삭제하는 API입니다."""
+
+    def __init__(self, root="memos"):
+        self.root = Path(root)
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def create(self, title, content):
+        filename = f"{title}.txt"
+        path = self.root / filename
+        path.write_text(content, encoding="utf-8")
+        return filename
+
+    def list_all(self):
+        return sorted(path.stem for path in self.root.glob("*.txt"))
+
+    def read(self, title):
+        return (self.root / f"{title}.txt").read_text(encoding="utf-8")
+
+    def delete(self, title):
+        path = self.root / f"{title}.txt"
+        if path.exists():
+            path.unlink()
+            return True
+        return False
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    api = MemoApi(Path(__file__).with_suffix(".memos"))
+    api.create("today", "study")
+    print(api.list_all())
+    api.delete("today")
 
 
 if __name__ == "__main__":

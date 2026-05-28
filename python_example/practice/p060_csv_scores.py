@@ -25,15 +25,26 @@ TITLE = "CSV 점수 평균"
 
 
 def average_csv_score(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("CSV 점수 평균 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    import csv
+    from pathlib import Path
+
+    path = Path(args[0])
+    scores = []
+    with path.open(newline="", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            scores.append(float(row.get("score", 0)))
+    return sum(scores) / len(scores) if scores else 0.0
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    from pathlib import Path
+    path = Path(__file__).with_suffix(".sample.csv")
+    path.write_text("name,score\nkim,90\nlee,80\n", encoding="utf-8")
+    print(average_csv_score(path))
 
 
 if __name__ == "__main__":

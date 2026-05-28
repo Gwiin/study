@@ -24,16 +24,41 @@ TOPIC = "project"
 TITLE = "미니 프로젝트 도서 대여"
 
 
-def BookRental(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("미니 프로젝트 도서 대여 문제를 구현하세요.")
+from datetime import date
+
+
+class BookRental:
+    """도서 대여와 반납, 연체 여부를 관리합니다."""
+
+    def __init__(self):
+        self.books = {}
+        self.rentals = {}
+
+    def add_book(self, title):
+        self.books[title] = True
+
+    def rent(self, title, user, due_date):
+        if not self.books.get(title, False):
+            raise ValueError("대여할 수 없는 책입니다.")
+        self.books[title] = False
+        self.rentals[title] = {"user": user, "due_date": due_date}
+
+    def return_book(self, title):
+        self.books[title] = True
+        return self.rentals.pop(title, None)
+
+    def overdue(self, today=None):
+        today = today or date.today()
+        return [title for title, info in self.rentals.items() if info["due_date"] < today]
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    rental = BookRental()
+    rental.add_book("Python")
+    rental.rent("Python", "kim", date(2026, 5, 1))
+    print(rental.overdue(date(2026, 5, 2)))
 
 
 if __name__ == "__main__":

@@ -24,16 +24,28 @@ TOPIC = "singleton"
 TITLE = "설정 singleton"
 
 
-def ConfigStore(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("설정 singleton 문제를 구현하세요.")
+class ConfigStore:
+    """항상 같은 인스턴스를 반환하는 설정 저장소입니다."""
+
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.values = {}
+        return cls._instance
+
+    def set(self, key, value):
+        self.values[key] = value
+
+    def get(self, key, default=None):
+        return self.values.get(key, default)
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(ConfigStore() is ConfigStore())
 
 
 if __name__ == "__main__":

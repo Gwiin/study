@@ -24,16 +24,29 @@ TOPIC = "project"
 TITLE = "미니 프로젝트 성적 리포트"
 
 
-def GradeReport(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("미니 프로젝트 성적 리포트 문제를 구현하세요.")
+class GradeReport:
+    """학생 점수를 추가하고 성적표를 생성합니다."""
+
+    def __init__(self):
+        self.students = {}
+
+    def add_student(self, name, scores):
+        self.students[name] = list(scores)
+
+    def build_report(self):
+        report = []
+        for name, scores in sorted(self.students.items()):
+            average = sum(scores) / len(scores) if scores else 0.0
+            report.append({"name": name, "average": average})
+        return report
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    report = GradeReport()
+    report.add_student("kim", [90, 80])
+    print(report.build_report())
 
 
 if __name__ == "__main__":

@@ -25,15 +25,15 @@ TITLE = "기본 인자 인사"
 
 
 def greet(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("기본 인자 인사 문제를 구현하세요.")
+    """문제 요구사항에 맞게 구현합니다."""
+    name = args[0] if args else kwargs.get("name", "손님")
+    return f"안녕하세요, {name}"
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(greet("Kim"))
 
 
 if __name__ == "__main__":

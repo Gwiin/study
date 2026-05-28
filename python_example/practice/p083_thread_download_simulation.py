@@ -24,16 +24,33 @@ TOPIC = "threading"
 TITLE = "스레드 작업 시뮬레이션"
 
 
+import threading
+import time
+
+
 def run_tasks(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("스레드 작업 시뮬레이션 문제를 구현하세요.")
+    """작업 이름과 대기 시간을 스레드로 처리하고 완료된 이름을 반환합니다."""
+    tasks = args[0]
+    completed = []
+    lock = threading.Lock()
+
+    def worker(name, duration):
+        time.sleep(duration)
+        with lock:
+            completed.append(name)
+
+    threads = [threading.Thread(target=worker, args=task) for task in tasks]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    return completed
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(run_tasks([("a", 0.01), ("b", 0.01)]))
 
 
 if __name__ == "__main__":

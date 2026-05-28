@@ -25,15 +25,29 @@ TITLE = "사칙연산 계산기"
 
 
 def calculate(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("사칙연산 계산기 문제를 구현하세요.")
+    """두 숫자와 연산자(+,-,*,/)를 받아 계산 결과를 반환합니다."""
+    left = float(args[0])
+    right = float(args[1])
+    operator = str(args[2])
+    if operator == "+":
+        result = left + right
+    elif operator == "-":
+        result = left - right
+    elif operator == "*":
+        result = left * right
+    elif operator == "/":
+        if right == 0:
+            raise ZeroDivisionError("0으로 나눌 수 없습니다.")
+        result = left / right
+    else:
+        raise ValueError("지원하지 않는 연산자입니다.")
+    return int(result) if result.is_integer() else result
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(calculate(10, 2, "+"))
 
 
 if __name__ == "__main__":

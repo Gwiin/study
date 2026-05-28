@@ -24,16 +24,32 @@ TOPIC = "project"
 TITLE = "미니 프로젝트 예산 관리"
 
 
-def BudgetBook(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("미니 프로젝트 예산 관리 문제를 구현하세요.")
+class BudgetBook:
+    """수입과 지출을 기록하고 요약합니다."""
+
+    def __init__(self):
+        self.incomes = []
+        self.expenses = []
+
+    def add_income(self, amount, memo=""):
+        self.incomes.append((amount, memo))
+
+    def add_expense(self, amount, memo=""):
+        self.expenses.append((amount, memo))
+
+    def summary(self):
+        income = sum(amount for amount, _ in self.incomes)
+        expense = sum(amount for amount, _ in self.expenses)
+        return {"income": income, "expense": expense, "balance": income - expense}
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    book = BudgetBook()
+    book.add_income(10000)
+    book.add_expense(3000)
+    print(book.summary())
 
 
 if __name__ == "__main__":

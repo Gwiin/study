@@ -25,15 +25,25 @@ TITLE = "점수 등급 변환"
 
 
 def score_to_grade(*args, **kwargs):
-    """문제 요구사항에 맞게 구현하세요."""
-    # TODO: 학생 실습 코드 작성
-    raise NotImplementedError("점수 등급 변환 문제를 구현하세요.")
+    """0~100 점수를 A/B/C/D/F 등급으로 변환합니다."""
+    score = float(args[0])
+    if score < 0 or score > 100:
+        raise ValueError("점수는 0~100 범위여야 합니다.")
+    if score >= 90:
+        return "A"
+    if score >= 80:
+        return "B"
+    if score >= 70:
+        return "C"
+    if score >= 60:
+        return "D"
+    return "F"
 
 
 def main():
     print(f"Practice {ORDER:03d}: {TITLE}")
     print(f"난이도: {LEVEL} | 주제: {TOPIC}")
-    print("이 파일은 학생 실습용 골격입니다. TODO를 구현한 뒤 직접 테스트하세요.")
+    print(score_to_grade(95))
 
 
 if __name__ == "__main__":
