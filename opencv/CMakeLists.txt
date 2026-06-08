@@ -14,3 +14,9 @@ target_link_libraries(02_basicOp PRIVATE ${OpenCV_LIBS})
 
 add_executable(03_matOp part1/03_matOp.cpp)
 target_link_libraries(03_matOp PRIVATE ${OpenCV_LIBS})
+
+add_executable(04_inputArray part1/04_inputArray.cpp)
+target_link_libraries(04_inputArray PRIVATE ${OpenCV_LIBS})
+
+add_executable(05_matOp2 part1/05_matOp2.cpp)
+target_link_libraries(05_matOp2 PRIVATE ${OpenCV_LIBS})

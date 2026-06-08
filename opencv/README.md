@@ -881,3 +881,394 @@ mat6 : [100, 100, 100, 100, 100;
 - `Mat`은 이미지뿐 아니라 일반 행렬처럼 사용할 수도 있다
 - 외부 메모리를 연결할 수 있지만 메모리 lifetime을 조심해야 한다
 - `new[]`를 사용하면 `delete[]`까지 직접 책임져야 한다
+
+## smart pointer와 vector를 이용한 외부 메모리
+
+`03_matOp.cpp`의 동적 할당 부분을 `unique_ptr`과 `vector`를 사용하는 형태로 바꿨다.
+
+```cpp
+auto data2 = make_unique<vector<float>>(10);
+```
+
+- `make_unique` -> 객체를 동적 생성하고 `unique_ptr`로 관리
+- `vector<float>(10)` -> float 원소 10개 생성
+- float 원소들은 기본적으로 `0.0f`로 초기화됨
+- `unique_ptr`가 scope를 벗어나면 vector도 자동으로 해제됨
+
+기존 `new[]`, `delete[]` 방식과 비교:
+
+```cpp
+float* data2 = new float[10];
+delete[] data2;
+```
+
+`unique_ptr`를 사용하면 직접 `delete`를 호출하지 않아도 된다.<br>
+다만 현재처럼 `make_unique`를 사용하려면 `<memory>`를 직접 include하는 것이 좋다.
+
+```cpp
+#include <memory>
+#include <vector>
+```
+
+정리:
+- raw pointer는 메모리 해제를 직접 관리
+- smart pointer는 소유권과 해제를 객체로 관리
+- 가능하면 `make_unique`를 사용하면 메모리 누수를 줄이기 좋다
+
+## range-based for와 값 복사
+
+처음에는 아래처럼 작성했다.
+
+```cpp
+for (auto x : *data2)
+{
+    x = 100.0;
+}
+```
+
+`auto x`는 vector의 각 원소를 복사해서 받는다.<br>
+그래서 `x`를 100으로 바꿔도 vector 안의 실제 원소는 바뀌지 않는다.
+
+실제 실행 결과:
+
+```text
+mat6 : [0, 0, 0, 0, 0;
+ 0, 0, 0, 0, 0]
+```
+
+vector의 실제 원소를 수정하려면 reference로 받아야 한다.<br>
+현재 `03_matOp.cpp`는 아래 형태로 수정되어 있다.
+
+```cpp
+for (auto& x : *data2)
+{
+    x = 100.0f;
+}
+```
+
+수정 후 실행 결과:
+
+```text
+mat6 : [100, 100, 100, 100, 100;
+ 100, 100, 100, 100, 100]
+```
+
+정리:
+- `auto x` -> 원소를 복사해서 사용
+- `auto& x` -> 실제 원소를 reference로 사용
+- container의 원소를 변경할 때는 `&`가 필요한지 확인해야 함
+
+## vector data와 Mat 연결
+
+```cpp
+Mat mat6(2, 5, CV_32FC1, data2->data());
+```
+
+`vector::data()`는 vector가 관리하는 연속된 메모리의 시작 주소를 반환한다.<br>
+이 주소를 `Mat` 생성자에 전달해서 2행 5열 행렬로 사용한다.
+
+주의할 점:
+- `Mat`이 vector의 데이터를 복사하는 것이 아니라 같은 메모리를 참조함
+- `Mat`을 사용하는 동안 vector가 살아 있어야 함
+- vector의 크기를 변경해서 재할당이 발생하면 기존 data pointer가 무효가 될 수 있음
+
+현재 코드에서는 `data2`가 `mat6`보다 나중까지 살아 있으므로 `cout`으로 출력하는 동안에는 사용할 수 있다.
+
+## InputArray와 OutputArray
+
+`04_inputArray.cpp`에서는 OpenCV 함수의 입력과 출력을 받는 공용 interface를 실습했다.
+
+```cpp
+void printMat(InputArray _mat, OutputArray _output);
+```
+
+- `InputArray` -> 입력 데이터를 받는 read-only proxy
+- `OutputArray` -> 결과를 저장할 대상을 받는 output proxy
+- 실제 호출할 때는 보통 `Mat`을 그대로 전달함
+
+```cpp
+Mat img = Mat(10, 20, CV_8UC1, Scalar(125));
+
+Mat mat2;
+printMat(img, mat2);
+```
+
+`img`는 `InputArray`로 전달되고 `mat2`는 `OutputArray`로 전달된다.
+
+OpenCV에서는 `InputArray`를 사용하면 함수 하나가 `Mat`, `vector`, `Matx` 등 여러 형태의 입력을 받을 수 있다.<br>
+일반 변수로 저장하기 위한 type이라기보다 함수 argument용 proxy로 보는 것이 좋다.
+
+## InputArray에서 Mat 얻기
+
+```cpp
+void printMat(InputArray _mat, OutputArray _output)
+{
+    Mat img = _mat.getMat();
+}
+```
+
+`getMat()`으로 입력 데이터를 `Mat` header 형태로 가져온다.<br>
+이 과정은 보통 pixel data 전체를 깊은 복사하는 것이 아니라 기존 데이터를 참조하는 형태이다.
+
+주의:
+- 입력값을 읽는 용도로 사용
+- 입력 데이터를 독립적으로 보관해야 한다면 `clone()` 같은 깊은 복사를 고려
+
+## Mat 전체 값 연산
+
+```cpp
+Mat img2 = img + 3;
+```
+
+`img`의 각 원소에 3을 더한 결과를 새 `Mat`으로 만든다.
+
+기존 `img` 값:
+```text
+125
+```
+
+연산 결과:
+```text
+128
+```
+
+현재 영상은 `CV_8UC1`이므로 한 channel의 범위는 `0 ~ 255`이다.<br>
+OpenCV의 일반적인 영상 산술 연산은 범위를 넘어갈 때 type 범위에 맞게 포화 연산되는 경우가 많다.
+
+정리:
+- `img + 3` -> 모든 pixel에 3 더하기
+- 원본 `img`는 125 유지
+- 결과 `img2`는 128
+
+## OutputArray로 결과 전달
+
+```cpp
+img2.copyTo(_output);
+```
+
+`copyTo()`를 사용해서 계산 결과를 호출한 쪽의 `mat2`에 복사한다.
+
+```cpp
+Mat mat2;
+printMat(img, mat2);
+cout << mat2 << endl;
+```
+
+실행 흐름:
+
+```text
+img 생성: 모든 값 125
+-> printMat(img, mat2)
+-> InputArray에서 Mat 얻기
+-> 각 원소에 3을 더해서 img2 생성
+-> img2.copyTo(_output)
+-> mat2에 모든 값 128 저장
+```
+
+실행 결과에서 확인한 점:
+- 함수 내부에서 출력한 `img`는 모두 125
+- 함수 호출 후 출력한 `mat2`는 모두 128
+
+## Mat의 얕은 복사
+
+`05_matOp2.cpp`에서는 `Mat`의 얕은 복사와 깊은 복사를 비교했다.
+
+```cpp
+Mat img1 = imread(folderPath + "dog.bmp");
+Mat img2 = img1;
+
+Mat img3;
+img3 = img1;
+```
+
+`Mat`을 단순 대입하면 pixel data 전체를 새로 복사하지 않는다.<br>
+새로운 `Mat` header가 같은 pixel data를 공유하는 얕은 복사가 된다.
+
+```text
+img1 ─┐
+img2 ─┼─> 같은 pixel data
+img3 ─┘
+```
+
+그래서 아래처럼 `img1`의 전체 값을 바꾸면 같은 데이터를 공유하는 `img2`, `img3`도 영향을 받는다.
+
+```cpp
+img1.setTo(Color::Yellow);
+```
+
+정리:
+- `Mat img2 = img1` -> 얕은 복사
+- `img3 = img1` -> 얕은 복사
+- header는 다르지만 실제 pixel data는 공유
+- OpenCV `Mat`은 내부적으로 reference count를 관리함
+
+## Mat의 깊은 복사
+
+독립된 pixel data가 필요하면 `clone()` 또는 `copyTo()`를 사용한다.
+
+```cpp
+Mat img4 = img1.clone();
+
+Mat img5;
+img1.copyTo(img5);
+```
+
+```text
+img1 -> 원본 pixel data
+img4 -> 별도로 복사된 pixel data
+img5 -> 별도로 복사된 pixel data
+```
+
+이후 `img1.setTo(Color::Yellow)`를 호출해도 `img4`, `img5`에는 원래 강아지 이미지가 남아 있다.
+
+정리:
+- `clone()` -> 새로운 `Mat`을 반환하는 깊은 복사
+- `copyTo()` -> 지정한 출력 `Mat`으로 깊은 복사
+- 원본과 독립적으로 수정해야 할 때 사용
+
+## setTo로 Mat 값 변경
+
+```cpp
+img1.setTo(Color::Yellow);
+```
+
+`setTo()`는 `Mat`의 모든 원소를 지정한 값으로 바꾼다.
+
+```cpp
+Color::Yellow
+```
+
+`colors.hpp` 기준:
+
+```cpp
+inline const cv::Scalar Yellow{0, 255, 255};
+```
+
+OpenCV는 BGR 순서이므로 `(0, 255, 255)`는 노란색이다.
+
+주의:
+- 얕은 복사된 `Mat`이 있으면 같은 pixel data가 함께 변경됨
+- 깊은 복사된 `Mat`에는 영향을 주지 않음
+
+## ROI와 부분 영상
+
+ROI는 Region Of Interest의 약자이다.<br>
+전체 영상 중에서 처리할 특정 영역을 선택하는 데 사용한다.
+
+```cpp
+Rect roi(220, 120, 200, 200);
+Mat img6 = img4(roi);
+```
+
+```text
+Rect(x, y, width, height)
+Rect(220, 120, 200, 200)
+```
+
+- 시작 위치 -> `(220, 120)`
+- 영역 크기 -> `200 x 200`
+
+`img4(roi)`는 해당 부분을 가리키는 새로운 `Mat` header를 만든다.<br>
+pixel data를 따로 복사하지 않으므로 `img6`는 `img4`의 일부 데이터를 공유한다.
+
+```cpp
+img6.setTo(Color::Black);
+```
+
+`img6`를 검은색으로 바꾸면 원본 역할을 하는 `img4`의 ROI 부분도 검은색으로 바뀐다.
+
+정리:
+- ROI 추출은 기본적으로 얕은 복사
+- ROI를 수정하면 원본의 해당 영역도 수정됨
+- 독립된 ROI가 필요하면 `clone()` 사용
+
+```cpp
+Mat img6 = img4(roi).clone();
+```
+
+## ROI 범위 주의
+
+ROI는 반드시 원본 영상 범위 안에 있어야 한다.
+
+```cpp
+Rect roi(220, 120, 200, 200);
+```
+
+확인할 조건:
+
+```text
+x >= 0
+y >= 0
+x + width  <= image width
+y + height <= image height
+```
+
+범위를 벗어나면 OpenCV assertion error가 발생할 수 있다.
+
+이미지를 읽지 못한 경우도 먼저 확인하는 것이 좋다.
+
+```cpp
+if (img1.empty())
+{
+    cerr << "이미지를 읽을 수 없음" << endl;
+    return 1;
+}
+```
+
+## 여러 창 표시와 종료
+
+```cpp
+imshow("img1", img1);
+imshow("img2", img2);
+imshow("img3", img3);
+imshow("img4", img4);
+imshow("img5", img5);
+imshow("img6", img6);
+
+waitKey();
+destroyAllWindows();
+```
+
+- `imshow()`를 여러 번 호출하면 이름이 다른 창을 여러 개 만들 수 있음
+- `waitKey()`로 키 입력과 GUI event를 기다림
+- 키를 누르면 `waitKey()` 다음 코드로 이동
+- `destroyAllWindows()`로 OpenCV가 만든 창을 모두 닫음
+
+현재 화면에서 예상되는 결과:
+- `img1`, `img2`, `img3` -> 노란색 영상
+- `img4` -> 원본 강아지 영상에서 ROI 부분만 검은색
+- `img5` -> 원본 강아지 영상 유지
+- `img6` -> 검은색으로 변경된 200 x 200 ROI
+
+## 04, 05 실습 target
+
+CMake에 실행 target을 추가했다.
+
+```cmake
+add_executable(04_inputArray part1/04_inputArray.cpp)
+target_link_libraries(04_inputArray PRIVATE ${OpenCV_LIBS})
+
+add_executable(05_matOp2 part1/05_matOp2.cpp)
+target_link_libraries(05_matOp2 PRIVATE ${OpenCV_LIBS})
+```
+
+빌드:
+
+```bash
+cmake --build opencv/build --target 04_inputArray
+cmake --build opencv/build --target 05_matOp2
+```
+
+실행:
+
+```bash
+./opencv/build/04_inputArray
+./opencv/build/05_matOp2
+```
+
+정리:
+- `InputArray`, `OutputArray`는 OpenCV 함수 argument를 유연하게 만드는 proxy
+- 단순 `Mat` 대입은 얕은 복사
+- `clone()`, `copyTo()`는 깊은 복사
+- ROI는 원본의 일부 data를 공유
+- 공유된 data를 수정하면 연결된 다른 `Mat`에도 변화가 보임
