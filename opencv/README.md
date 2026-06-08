@@ -1272,3 +1272,186 @@ cmake --build opencv/build --target 05_matOp2
 - `clone()`, `copyTo()`는 깊은 복사
 - ROI는 원본의 일부 data를 공유
 - 공유된 data를 수정하면 연결된 다른 `Mat`에도 변화가 보임
+
+## 카메라 영상 입력
+
+`06_video.cpp`
+
+카메라나 동영상 파일에서 frame을 읽을 때는 `VideoCapture`를 사용한다.
+
+```cpp
+VideoCapture cap(0);
+if (!cap.isOpened())
+{
+    cerr << "카메라를 열수 없습니다." << endl;
+}
+```
+
+- `VideoCapture cap(0)` -> 기본 카메라 장치 열기
+- 보통 Linux에서는 `/dev/video0` 같은 장치와 연결됨
+- `isOpened()`로 카메라가 정상적으로 열렸는지 확인
+
+주의:
+- 지금 코드는 카메라를 열지 못해도 바로 종료하지 않고 계속 진행한다
+- 실제 코드에서는 `return 1;`로 중단하는 것이 더 안전하다
+
+```cpp
+if (!cap.isOpened())
+{
+    cerr << "카메라를 열수 없습니다." << endl;
+    return 1;
+}
+```
+
+## 카메라 속성 설정
+
+카메라 frame 형식, 크기, FPS를 설정했다.
+
+```cpp
+cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M','J','P','G'));
+cap.set(CAP_PROP_FRAME_WIDTH, 640);
+cap.set(CAP_PROP_FRAME_HEIGHT, 480);
+cap.set(CAP_PROP_FPS, 30);
+```
+
+확인한 점:
+- `CAP_PROP_FOURCC` -> 영상 압축/전송 형식 설정
+- `MJPG` -> Motion JPEG 형식
+- `CAP_PROP_FRAME_WIDTH` -> frame width
+- `CAP_PROP_FRAME_HEIGHT` -> frame height
+- `CAP_PROP_FPS` -> 초당 frame 수
+
+주의:
+- `set()`은 요청한 값을 카메라에 전달하는 것이다
+- 실제 적용 여부는 카메라, driver, WSL/리눅스 환경에 따라 다를 수 있다
+- 필요하면 `cap.get()`으로 실제 적용된 값을 확인하는 것이 좋다
+
+예:
+```cpp
+cout << cap.get(CAP_PROP_FRAME_WIDTH) << endl;
+cout << cap.get(CAP_PROP_FRAME_HEIGHT) << endl;
+cout << cap.get(CAP_PROP_FPS) << endl;
+```
+
+## frame 읽기와 화면 출력
+
+```cpp
+Mat frame;
+for (int i = 0; i < 1000; ++i)
+{
+    cap >> frame;
+    if(waitKey(30) == 27)
+        break;
+    imshow("frame", frame);
+}
+```
+
+`cap >> frame`으로 카메라에서 한 장의 frame을 읽는다.<br>
+동영상은 결국 이미지를 계속 읽어서 빠르게 보여주는 방식으로 생각하면 된다.
+
+- `frame` -> 현재 카메라에서 읽은 한 장의 영상
+- `imshow("frame", frame)` -> frame 창에 출력
+- `waitKey(30)` -> 약 30ms 기다리면서 키 입력 확인
+- `27` -> ESC key 값
+
+주의:
+- `cap >> frame` 이후 `frame.empty()`도 확인하는 것이 안전하다
+- 카메라 연결이 끊기거나 frame을 못 읽으면 빈 `Mat`이 될 수 있다
+
+```cpp
+cap >> frame;
+if (frame.empty())
+{
+    cerr << "frame을 읽을 수 없습니다." << endl;
+    break;
+}
+```
+
+정리:
+- 이미지 파일은 `imread()`로 한 번 읽음
+- 카메라는 `VideoCapture`로 열고 frame을 반복해서 읽음
+- `waitKey()`는 화면 갱신과 키 입력 처리에 필요함
+- ESC를 누르면 loop를 빠져나오게 만들 수 있음
+
+## 카메라 장치 권한 문제
+
+GStreamer로 먼저 카메라 입력을 확인했다.
+
+```bash
+gst-launch-1.0 v4l2src device=/dev/video0 ! \
+  video/x-h264,width=1280,height=720,framerate=30/1 ! \
+  h264parse ! avdec_h264 ! videoconvert ! autovideosink sync=false
+```
+
+처음에는 아래 에러가 났다.
+
+```text
+Could not open device '/dev/video0' for reading and writing.
+system error: Permission denied
+```
+
+`/dev/video0` 권한을 확인했다.
+
+```bash
+ls -l /dev/video0
+id
+```
+
+확인한 내용:
+```text
+/dev/video0 -> root video
+현재 user -> video group에 없음
+```
+
+원인:
+- `/dev/video0`는 `root` 또는 `video` group 사용자만 읽고 쓸 수 있었다
+- 현재 사용자가 `video` group에 없어서 permission denied가 발생했다
+
+해결:
+```bash
+sudo usermod -aG video $USER
+```
+
+WSL에서는 group 변경 후 세션을 다시 시작해야 적용된다.
+
+```powershell
+wsl --shutdown
+```
+
+다시 확인:
+```bash
+id
+```
+
+`video` group이 보이면 정상이다.
+
+정리:
+- 카메라 코드가 안 될 때는 OpenCV 코드보다 장치 권한을 먼저 확인할 수 있다
+- `/dev/video0`가 `root video`이고 내 계정이 `video` group에 있어야 함
+- 권한을 준 뒤에는 GStreamer pipeline과 OpenCV `VideoCapture`가 정상 동작했다
+
+## 06 실습 target
+
+CMake에 `06_video` target을 추가했다.
+
+```cmake
+add_executable(06_video part1/06_video.cpp)
+target_link_libraries(06_video PRIVATE ${OpenCV_LIBS})
+```
+
+빌드:
+
+```bash
+cmake --build opencv/build --target 06_video
+```
+
+실행:
+
+```bash
+./opencv/build/06_video
+```
+
+빌드 확인:
+```text
+[100%] Built target 06_video
+```
