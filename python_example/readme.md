@@ -5644,3 +5644,254 @@ data: {"count": 3}
 - JavaScript는 버튼 event와 API 호출
 - SSE는 server에서 frontend로 count 변경을 밀어주는 역할
 - webview는 이 local web page를 desktop app 창처럼 보여준다
+
+---
+
+## webview bridge file list 예제 구조
+
+`webview_example/bridge_file_list` 폴더는 pywebview의 `js_api`를 사용해서 JavaScript에서 Python 함수를 직접 호출하는 예제이다.
+
+앞의 Flask 예제와 다르게 local web server를 따로 만들지 않는다.<br>
+HTML 파일을 바로 열고, `js_api=FileListApi()`로 Python 객체를 JavaScript에 연결한다.
+
+```text
+webview_example/bridge_file_list/
+├── demo_files/
+│   └── test.txt
+├── frontend/
+│   ├── app.js
+│   ├── index.html
+│   └── style.css
+└── main.py
+```
+
+정리:
+- `main.py` -> webview 창을 만들고 Python API 객체를 JS에 연결
+- `demo_files/` -> 목록을 확인할 테스트 파일 폴더
+- `frontend/index.html` -> 화면 뼈대
+- `frontend/app.js` -> Python 함수를 호출하고 결과를 화면에 그림
+- `frontend/style.css` -> 파일 목록 화면 디자인
+
+## bridge_file_list/main.py
+
+```python
+from pathlib import Path
+
+import webview
+
+BASE_DIR = Path(__file__).resolve().parent
+FRONTEND_DIR = BASE_DIR / "frontend"
+DEMO_DIR = BASE_DIR / "demo_files"
+```
+
+`BASE_DIR`는 `main.py`가 있는 `bridge_file_list` 폴더이다.
+
+- `FRONTEND_DIR` -> HTML, CSS, JS가 있는 폴더
+- `DEMO_DIR` -> 파일 목록을 읽을 테스트 폴더
+
+```python
+class FileListApi:
+    def __init__(self):
+        pass
+```
+
+`FileListApi`는 JavaScript에서 호출할 Python API class이다.<br>
+`__init__()`에서는 아직 특별히 초기화할 값이 없어서 `pass`만 들어 있다.
+
+```python
+def list_files(self):
+    files = []
+    for path in sorted(DEMO_DIR.iterdir()):
+        if path.is_file():
+            files.append({"name": path.name,
+                          "suffix": path.suffix or "(none)",
+                          "size": path.stat().st_size
+                          })
+    return files
+```
+
+`list_files()`는 `demo_files` 폴더 안의 파일 정보를 list로 만들어 반환한다.
+
+확인하는 값:
+- `path.name` -> 파일 이름
+- `path.suffix` -> 확장자
+- `path.stat().st_size` -> 파일 크기 byte
+
+```python
+path.suffix or "(none)"
+```
+
+확장자가 없으면 빈 문자열이 나오기 때문에 `"(none)"`으로 표시한다.
+
+반환 형태는 이런 느낌이다.
+
+```python
+[
+    {
+        "name": "test.txt",
+        "suffix": ".txt",
+        "size": 10,
+    }
+]
+```
+
+주의:
+- 실제 size 값은 파일 내용에 따라 달라진다.
+- `demo_files/test.txt`에는 현재 `asdfasefaef`가 들어 있다.
+
+```python
+def main():
+    webview.create_window(
+        "파일 정보 확인",
+        url=(FRONTEND_DIR / "index.html").as_uri(),
+        js_api=FileListApi(),
+        width=520,
+        height=420,
+        resizable=True,
+    )
+    webview.start()
+```
+
+`url=(FRONTEND_DIR / "index.html").as_uri()`는 HTML 파일 경로를 URI로 바꾼다.<br>
+예를 들면 `file:///.../frontend/index.html` 같은 형태가 된다.
+
+핵심은 `js_api=FileListApi()`이다.
+
+```python
+js_api=FileListApi()
+```
+
+이렇게 넘긴 객체의 public method를 JavaScript에서 호출할 수 있다.<br>
+그래서 `FileListApi.list_files()`를 JS에서 `window.pywebview.api.list_files()`로 부를 수 있다.
+
+정리:
+- 이 예제는 Flask server를 사용하지 않는다
+- Python 객체를 webview에 직접 bridge로 넘긴다
+- JavaScript는 HTTP fetch가 아니라 `window.pywebview.api`를 사용한다
+- local file을 읽는 작업은 Python 쪽에서 처리한다
+
+## bridge_file_list/frontend/index.html
+
+```html
+<!doctype html>
+<html lang="ko">
+    <head>
+        <meta charset="utf-8"/>
+        <title>파일 정보확인</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+```
+
+HTML 기본 설정이다.
+
+- `lang="ko"` -> 한국어 문서
+- `charset="utf-8"` -> 한글 깨짐 방지
+- `title` -> 창 제목 또는 문서 제목
+- `style.css` -> CSS 연결
+
+```html
+<body>
+    <main class="counter">
+        <header>
+            <p class="label">파일 목록</p>
+            <button id="load" type="button">Python 함수 호출</button>
+        </header>
+        <ul id="files" class="file-list"></ul>
+    </main>
+    <script src="app.js"></script>
+</body>
+```
+
+화면 구조:
+- `button#load` -> Python 함수 호출 버튼
+- `ul#files` -> 파일 목록이 들어갈 자리
+- `script src="app.js"` -> JS 동작 연결
+
+주의:
+- HTML에서는 `main class="counter"`를 사용한다.
+- CSS에는 `.shell` class가 정의되어 있지만 현재 HTML에서는 쓰지 않는다.
+- 화면 wrapper용 class 이름을 맞추려면 HTML을 `.shell`로 바꾸거나 CSS에 `.counter` 스타일을 추가하면 된다.
+
+## bridge_file_list/frontend/app.js
+
+```javascript
+const loadButton = document.getElementById('load');
+const filesEl = document.getElementById('files');
+```
+
+HTML에서 버튼과 파일 목록 영역을 가져온다.
+
+```javascript
+function renderFiles(files) {
+    filesEl.innerHTML = '';
+    for (const file of files) {
+        const item = document.createElement('li');
+        item.innerHTML = `<strong>${file.name}</strong><span>${file.suffix} · ${file.size} bytes</span>`;
+        filesEl.appendChild(item);
+    }
+}
+```
+
+`renderFiles()`는 Python에서 받은 파일 목록을 화면에 그린다.
+
+- `filesEl.innerHTML = ''` -> 기존 목록 비우기
+- `document.createElement('li')` -> 파일 하나당 `li` 생성
+- `file.name`, `file.suffix`, `file.size` -> Python dict의 key를 JS object property처럼 사용
+
+```javascript
+async function loadFiles() {
+    const files = await window.pywebview.api.list_files();
+    renderFiles(files);
+}
+```
+
+여기가 bridge의 핵심이다.
+
+```javascript
+window.pywebview.api.list_files()
+```
+
+JavaScript에서 Python의 `FileListApi.list_files()`를 호출한다.<br>
+Python 함수가 반환한 list/dict는 JavaScript에서 배열/object처럼 사용할 수 있다.
+
+```javascript
+window.addEventListener('pywebviewready', loadFiles);
+loadButton.addEventListener('click', loadFiles);
+```
+
+`pywebviewready`는 pywebview bridge가 준비되었을 때 발생하는 event이다.<br>
+처음 창이 준비되면 자동으로 파일 목록을 읽고, 버튼을 눌러도 다시 읽는다.
+
+정리:
+- JS는 직접 파일 시스템에 접근하지 않는다
+- Python 함수가 파일 목록을 읽고 JS로 결과를 넘긴다
+- `await`를 쓰는 이유는 Python bridge 호출이 비동기처럼 동작하기 때문이다
+- 버튼 클릭으로 같은 Python 함수를 다시 호출할 수 있다
+
+## bridge_file_list 동작 흐름
+
+```text
+main.py 실행
+-> FRONTEND_DIR, DEMO_DIR 경로 계산
+-> FileListApi 객체 생성
+-> webview.create_window(..., js_api=FileListApi())
+-> index.html을 file URI로 열기
+-> pywebview bridge 준비
+-> pywebviewready event 발생
+-> app.js가 window.pywebview.api.list_files() 호출
+-> Python list_files()가 demo_files 폴더 순회
+-> 파일 이름, 확장자, 크기를 list[dict]로 반환
+-> app.js가 li element를 만들어 화면에 표시
+```
+
+Flask 방식과 비교:
+- Flask 방식 -> JS가 `fetch('/api/...')`로 HTTP API 호출
+- bridge 방식 -> JS가 `window.pywebview.api.method()`로 Python method 직접 호출
+- Flask 방식은 browser/server 구조에 가깝다
+- bridge 방식은 desktop app에서 Python 기능을 JS UI에 붙이는 느낌이 강하다
+
+정리:
+- 이 예제는 pywebview bridge 기본 구조를 보기 좋다
+- 화면은 HTML/CSS/JS가 담당한다
+- 파일 시스템 접근은 Python이 담당한다
+- `js_api`로 Python과 JavaScript 사이에 통로를 만든다
