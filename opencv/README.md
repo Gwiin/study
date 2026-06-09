@@ -2365,3 +2365,734 @@ c += 3;
 - `getTextSize()` -> 문자열이 차지할 영역 계산
 - `Rect`를 같이 그리면 텍스트 좌표와 영역을 확인하기 편함
 - font 파일 경로와 OpenCV FreeType module 지원 여부를 확인해야 함
+
+## waitKey로 키보드 입력 받기
+
+`15_keyboard.cpp`
+
+`waitKey()`의 반환값을 저장해서 어떤 키가 눌렸는지 확인했다.
+
+```cpp
+int keycode = waitKey(needed_tick_ms);
+
+if (keycode == 27)
+    break;
+
+if (keycode == 'v' || keycode == 'V')
+    img = ~img;
+
+if (keycode != -1)
+    cout << "keycode: " << keycode << endl;
+```
+
+- 키 입력이 없으면 보통 `-1`
+- ESC key -> 27
+- 소문자 `v`와 대문자 `V`를 각각 비교할 수 있음
+
+`v`를 누르면 영상의 pixel 값을 반전한다.
+
+```cpp
+img = ~img;
+```
+
+8bit 영상에서는 각 channel 값이 아래처럼 바뀐다.
+
+```text
+결과값 = 255 - 원래값
+```
+
+같은 영상을 다시 반전하면 원래 색에 가까운 상태로 돌아온다.
+
+주의:
+- `waitKey()`는 키보드 입력뿐 아니라 OpenCV 창의 GUI event 처리에도 필요함
+- 특수 key 값은 운영체제와 backend에 따라 다르게 들어올 수 있음
+- 현재 실습처럼 일반 문자와 ESC를 처리할 때는 반환값을 직접 출력해보는 것이 편함
+
+## getTickCount로 시간 측정
+
+OpenCV에서는 tick 값을 이용해서 코드 실행 시간을 계산할 수 있다.
+
+```cpp
+auto start_tick = getTickCount();
+
+double elapsed_ms =
+    (getTickCount() - start_tick)
+    * 1000.0
+    / getTickFrequency();
+```
+
+- `getTickCount()` -> 현재 tick count
+- `getTickFrequency()` -> 1초에 해당하는 tick 수
+- 두 tick의 차이를 frequency로 나누면 초 단위 시간
+- `1000.0`을 곱하면 millisecond 단위 시간
+
+현재 `15_keyboard.cpp`에서는 loop 시작 직후 start tick을 저장하고 바로 elapsed time을 계산한다.
+
+```cpp
+start_tick = getTickCount();
+double elapsed_ms =
+    (getTickCount() - start_tick) * 1000.0
+    / getTickFrequency();
+```
+
+사이에 처리하는 코드가 거의 없어서 `elapsed_ms`도 거의 0에 가깝다.<br>
+실제 영상 처리 시간을 빼고 남은 시간만 기다리려면 처리할 코드를 두 tick 사이에 넣어야 한다.
+
+```cpp
+int64 startTick = getTickCount();
+
+// 영상 처리
+imshow("img", img);
+
+double elapsedMs =
+    (getTickCount() - startTick)
+    * 1000.0
+    / getTickFrequency();
+```
+
+## 목표 FPS에 맞춰 기다리기
+
+```cpp
+int fps = 45;
+int needed_tick_ms =
+    cvRound(1000.0 / fps - elapsed_ms);
+
+int keycode = waitKey(needed_tick_ms);
+```
+
+45 FPS에서 한 frame에 사용할 수 있는 시간은 약 22.2ms이다.
+
+```text
+1000ms / 45fps = 약 22.2ms
+```
+
+처리 시간을 제외한 나머지 시간을 `waitKey()`에 전달하면 목표 FPS에 가깝게 조절할 수 있다.
+
+주의:
+- 처리 시간이 frame 시간보다 길면 계산 결과가 0 이하가 될 수 있음
+- `waitKey(0)` 또는 음수 delay는 key가 입력될 때까지 기다릴 수 있음
+- 최소 delay를 보장하는 것이 안전함
+
+```cpp
+int delay = std::max(1, cvRound(1000.0 / fps - elapsedMs));
+int keycode = waitKey(delay);
+```
+
+정확한 실시간 FPS를 보장하는 것은 아니고, 간단한 화면 갱신 속도 조절로 생각하면 된다.
+
+## TickMeter
+
+`16_tickmeter.cpp`
+
+tick 계산을 직접 하지 않고 `TickMeter`로 실행 시간을 측정해보았다.
+
+```cpp
+TickMeter tm1;
+
+tm1.start();
+imshow("img", img);
+tm1.stop();
+
+double elapsed_ms = tm1.getTimeMilli();
+tm1.reset();
+```
+
+- `start()` -> 측정 시작
+- `stop()` -> 측정 종료
+- `getTimeMilli()` -> 누적 시간을 ms 단위로 반환
+- `reset()` -> 측정값 초기화
+
+`start()`와 `stop()` 사이의 코드만 측정한다.
+
+현재 코드는 `imshow()` 호출 시간을 측정하고, 목표 10 FPS에서 남은 시간을 계산한다.
+
+```cpp
+int fps = 10;
+int needed_tick_ms =
+    cvRound(1000.0 / fps - elapsed_ms);
+```
+
+현재 코드에는 `tm2`도 있지만 `start()`만 호출하고 측정값을 사용하지 않는다.
+
+```cpp
+TickMeter tm2;
+tm2.start();
+```
+
+사용하지 않는 측정기는 제거하거나 loop 전체 시간을 측정하는 용도로 `stop()`과 출력 코드를 추가할 수 있다.
+
+정리:
+- 짧은 구간 측정 -> `getTickCount()`
+- start/stop 형태의 측정 -> `TickMeter`
+- 여러 번 start/stop하면 시간이 누적될 수 있으므로 frame별 측정은 `reset()` 필요
+
+## 마우스 callback 등록
+
+`17_mouse.cpp`
+
+OpenCV 창에서 발생한 mouse event를 처리할 때 `setMouseCallback()`을 사용한다.
+
+```cpp
+namedWindow("img");
+setMouseCallback("img", on_mouse, (void *)&img);
+```
+
+```text
+setMouseCallback(windowName, callback, userData)
+```
+
+- `windowName` -> mouse event를 받을 창 이름
+- `callback` -> event가 생길 때 실행할 함수
+- `userData` -> callback에 전달할 사용자 data
+
+callback 함수 형태:
+
+```cpp
+void on_mouse(
+    int event,
+    int x,
+    int y,
+    int flags,
+    void *data
+);
+```
+
+- `event` -> click, button up, mouse move 같은 event 종류
+- `x`, `y` -> 현재 mouse 좌표
+- `flags` -> 눌린 button이나 modifier key 상태
+- `data` -> 등록할 때 전달한 사용자 data
+
+## void pointer로 Mat 전달
+
+등록할 때 `Mat` 주소를 `void*`로 전달했다.
+
+```cpp
+setMouseCallback("img", on_mouse, (void *)&img);
+```
+
+callback 안에서는 다시 `Mat*`로 변환한다.
+
+```cpp
+Mat *img = (Mat *)data;
+```
+
+현재 코드 방식으로 동작하지만 C++에서는 `static_cast`를 사용하면 의도가 더 명확하다.
+
+```cpp
+Mat *img = static_cast<Mat *>(data);
+```
+
+callback이 실행되는 동안 전달한 객체가 살아 있어야 한다.<br>
+현재 `img`는 `main()`이 끝날 때까지 유지되므로 callback에서 사용할 수 있다.
+
+## 왼쪽 drag로 선 그리기
+
+```cpp
+static Point ptOld;
+static bool pushed;
+```
+
+callback 호출이 끝난 뒤에도 이전 위치와 button 상태를 유지하기 위해 `static` 지역 변수를 사용했다.
+
+```cpp
+case EVENT_LBUTTONDOWN:
+    ptOld = Point(x, y);
+    pushed = true;
+    break;
+
+case EVENT_LBUTTONUP:
+    pushed = false;
+    break;
+```
+
+mouse가 움직일 때 button이 눌린 상태라면 이전 위치와 현재 위치를 선으로 연결한다.
+
+```cpp
+case EVENT_MOUSEMOVE:
+    if (pushed)
+    {
+        line(*img, ptOld, Point(x, y), Color::Red, 2);
+        ptOld = Point(x, y);
+    }
+    break;
+```
+
+점들을 따로 찍는 것이 아니라 짧은 선분을 계속 연결하기 때문에 부드러운 drag 선처럼 보인다.
+
+정리:
+- button down -> drawing 시작
+- mouse move -> 이전 좌표에서 현재 좌표까지 선 그리기
+- button up -> drawing 종료
+
+## mouse event data 구조체로 관리
+
+`18_mouse_example.cpp`
+
+이미지뿐 아니라 mouse 위치, 이전 위치, 현재 색상, button 상태가 필요해서 구조체로 묶었다.
+
+```cpp
+struct MouseData
+{
+    Mat canvas;
+    Mat view;
+    Point mousePosition;
+    Point previousPosition;
+    Scalar boxColor = Color::Red;
+    bool leftButtonPressed = false;
+};
+```
+
+- `canvas` -> 실제 선이 계속 저장되는 영상
+- `view` -> mouse box까지 합쳐서 화면에 보여줄 영상
+- `mousePosition` -> 현재 mouse 좌표
+- `previousPosition` -> 이전 drawing 좌표
+- `boxColor` -> box와 선의 현재 색상
+- `leftButtonPressed` -> 왼쪽 button 상태
+
+callback에는 구조체 주소를 전달한다.
+
+```cpp
+setMouseCallback("img", onMouse, &data);
+```
+
+```cpp
+MouseData &data =
+    *static_cast<MouseData *>(userData);
+```
+
+여러 상태를 전역 변수로 따로 만들지 않고 하나의 data로 관리할 수 있었다.
+
+## 화면용 Mat과 drawing Mat 분리
+
+mouse를 따라가는 사각형은 이전 위치에 흔적을 남기면 안 된다.<br>
+그래서 실제 drawing이 저장되는 `canvas`를 복사해서 `view`를 만든다.
+
+```cpp
+void updateView(MouseData &data)
+{
+    data.view = data.canvas.clone();
+
+    rectangle(
+        data.view,
+        Point(data.mousePosition.x - 25,
+              data.mousePosition.y - 25),
+        Point(data.mousePosition.x + 25,
+              data.mousePosition.y + 25),
+        data.boxColor,
+        2,
+        LINE_AA
+    );
+}
+```
+
+```text
+canvas -> 선이 실제로 누적되는 원본
+view   -> canvas 복사본 + 현재 위치의 사각형
+```
+
+mouse가 움직일 때마다 `view`를 새로 만들기 때문에 이전 사각형은 사라지고 현재 위치에만 보인다.
+
+## 오른쪽 click으로 랜덤 색상 만들기
+
+```cpp
+case EVENT_RBUTTONDOWN:
+{
+    static RNG rng(getTickCount());
+
+    data.boxColor = Scalar(
+        rng.uniform(0, 256),
+        rng.uniform(0, 256),
+        rng.uniform(0, 256)
+    );
+
+    printColor("랜덤 색상", data.boxColor);
+    break;
+}
+```
+
+`RNG`는 OpenCV의 난수 생성기이다.
+
+- `uniform(0, 256)` -> 0 이상 256 미만의 정수
+- B, G, R channel에 각각 난수 생성
+- 오른쪽 button을 누를 때 box와 drawing 색상이 같이 변경됨
+
+출력 예:
+
+```text
+[랜덤 색상] BGR: (34, 182, 91)
+```
+
+OpenCV 색상 순서이므로 출력도 RGB가 아니라 BGR이다.
+
+## 휠 button으로 스포이드 만들기
+
+mouse wheel을 누르는 동작은 `EVENT_MBUTTONDOWN`으로 처리했다.
+
+```cpp
+case EVENT_MBUTTONDOWN:
+    if (x >= 0 && x < data.canvas.cols &&
+        y >= 0 && y < data.canvas.rows)
+    {
+        Vec3b pixel = data.canvas.at<Vec3b>(y, x);
+
+        data.boxColor =
+            Scalar(pixel[0], pixel[1], pixel[2]);
+
+        printColor("스포이드", data.boxColor);
+    }
+    break;
+```
+
+컬러 `CV_8UC3` 영상의 pixel 하나는 `Vec3b`로 읽을 수 있다.
+
+```text
+pixel[0] -> B
+pixel[1] -> G
+pixel[2] -> R
+```
+
+Mat의 pixel 접근 순서는 `(y, x)`이다.
+
+```cpp
+data.canvas.at<Vec3b>(y, x);
+```
+
+`Point(x, y)` 순서와 반대처럼 보여서 헷갈릴 수 있다.
+
+출력 예:
+
+```text
+[스포이드] BGR: (120, 88, 203)
+```
+
+주의:
+- pixel에 접근하기 전에 x, y가 영상 범위 안인지 확인해야 함
+- grayscale 영상이라면 `Vec3b`가 아니라 `uchar` 같은 1channel type을 사용해야 함
+
+## 트랙바 만들기
+
+`19_trackbar.cpp`
+
+OpenCV 창에 값을 조절할 수 있는 trackbar를 추가했다.
+
+```cpp
+int pos = 0;
+
+createTrackbar(
+    "level",
+    "img",
+    &pos,
+    255,
+    on_level_change,
+    (void *)&img
+);
+```
+
+```text
+createTrackbar(name, windowName, value,
+               maxValue, callback, userData)
+```
+
+- trackbar 이름 -> `level`
+- 붙일 창 이름 -> `img`
+- 현재 값을 저장할 변수 -> `pos`
+- 최댓값 -> 255
+- 값이 변경될 때 호출할 함수 -> `on_level_change`
+- callback에 전달할 data -> `img`
+
+callback:
+
+```cpp
+void on_level_change(int pos, void *data)
+{
+    Mat *img = (Mat *)data;
+    img->setTo(Scalar(pos, 0, 0));
+}
+```
+
+trackbar 값이 바뀌면 영상 전체 pixel을 `(pos, 0, 0)`으로 변경한다.
+
+OpenCV는 BGR 순서이므로 `pos`가 증가할수록 파란색 channel이 강해진다.
+
+주의:
+- 원본 lenna 영상이 밝아지는 것이 아니라 영상 전체를 같은 색으로 덮어씀
+- 밝기 조절을 하려면 원본을 따로 보관하고 pixel 연산 결과를 출력해야 함
+- loop에서 `cout << pos`를 계속 실행하므로 값이 바뀌지 않아도 매 frame 출력됨
+
+## FileStorage로 YAML 저장
+
+`20_filestorage.cpp`
+
+OpenCV의 `FileStorage`를 사용해서 여러 자료형을 YAML 파일에 저장했다.
+
+```cpp
+FileStorage fs;
+fs.open(
+    folderPath + "mydata.yml",
+    FileStorage::WRITE
+);
+```
+
+- `FileStorage::WRITE` -> 새 파일을 쓰는 mode
+- 같은 파일이 있으면 기존 내용이 바뀔 수 있음
+- 확장자에 따라 YAML, XML, JSON 형식을 사용할 수 있음
+
+값은 `<<` 연산자로 key와 value를 차례대로 전달한다.
+
+```cpp
+fs << "name" << name;
+fs << "age" << age;
+fs << "point" << pt1;
+fs << "scores" << scores;
+fs << "data" << mat1;
+```
+
+저장한 type:
+
+```text
+name   -> String
+age    -> int
+point  -> Point
+scores -> vector<float>
+data   -> Mat, 2 x 2 float
+```
+
+사용이 끝나면 파일을 닫는다.
+
+```cpp
+fs.release();
+```
+
+## YAML 저장 결과
+
+실제 `mydata.yml` 일부:
+
+```yaml
+%YAML:1.0
+---
+name: Kim Chan Ho
+age: 33
+point: [ 100, 200 ]
+scores: [ 3.14000010e+00, 6.65999985e+00, 9.14000034e+00 ]
+data: !!opencv-matrix
+   rows: 2
+   cols: 2
+   dt: f
+   data: [ 1., 1.50000000e+00, 2., 3.20000005e+00 ]
+```
+
+Mat에는 크기와 자료형 정보도 같이 저장된다.
+
+- `rows` -> 2
+- `cols` -> 2
+- `dt: f` -> float type
+- `data` -> 실제 원소 값
+
+float 값은 YAML에서 소수 표현이 조금 길게 보일 수 있다.<br>
+이것은 이진 부동소수점 표현과 출력 정밀도 때문이고 저장 실패는 아니다.
+
+## FileStorage에서 YAML 읽기
+
+`21_filestorage2.cpp`
+
+읽을 때는 `FileStorage::READ` mode를 사용한다.
+
+```cpp
+FileStorage fs;
+fs.open(
+    folderPath + "mydata.yml",
+    FileStorage::READ
+);
+```
+
+key로 node를 선택하고 `>>` 연산자로 변수에 저장한다.
+
+```cpp
+fs["name"] >> name;
+fs["age"] >> age;
+fs["point"] >> pt1;
+fs["scores"] >> scores;
+fs["data"] >> mat1;
+```
+
+저장할 때 사용한 type과 읽을 변수 type을 맞추는 것이 좋다.
+
+실행 결과:
+
+```text
+Kim Chan Ho33[100, 200][3.1400001, 6.6599998, 9.1400003][1, 1.5;
+ 2, 3.2]
+```
+
+값은 정상적으로 읽혔지만 출력 사이에 공백이나 label을 넣지 않아서 붙어서 보인다.
+
+```cpp
+cout << "name: " << name << '\n'
+     << "age: " << age << '\n'
+     << "point: " << pt1 << '\n'
+     << "scores: " << Mat(scores).t() << '\n'
+     << "data:\n" << mat1 << endl;
+```
+
+주의:
+- 파일이 열렸는지 `fs.isOpened()`로 확인하는 것이 안전함
+- key가 없거나 type이 다르면 원하는 값이 들어오지 않을 수 있음
+- 읽기가 끝나면 `release()`로 닫음
+
+## mask를 이용한 부분 변경
+
+`22_mask.cpp`
+
+`setTo()`의 두 번째 argument에 mask를 전달했다.
+
+```cpp
+Mat img1 =
+    imread(folderPath + "lenna.bmp");
+
+Mat img2 =
+    imread(
+        folderPath + "mask_smile.bmp",
+        IMREAD_GRAYSCALE
+    );
+
+img1.setTo(Color::Yellow, img2);
+```
+
+mask에서 값이 0이 아닌 pixel 위치만 노란색으로 변경된다.
+
+```text
+mask pixel == 0 -> 원본 유지
+mask pixel != 0 -> Color::Yellow로 변경
+```
+
+mask는 보통 8bit 1channel 영상으로 사용한다.
+
+```cpp
+IMREAD_GRAYSCALE
+```
+
+현재 `lenna.bmp`와 `mask_smile.bmp`는 둘 다 `512 x 512`라서 같은 위치에 mask를 적용할 수 있다.
+
+주의:
+- mask 크기는 대상 영상 크기와 같아야 함
+- mask는 보통 `CV_8UC1`
+- grayscale 값이 꼭 255일 필요는 없고 0이 아니면 선택된 위치로 처리됨
+
+## copyTo와 mask로 영상 합성
+
+비행기 영상에서 mask가 선택한 부분만 배경 ROI에 복사했다.
+
+```cpp
+Mat roi = frame(roiRect);
+airplane.copyTo(roi, maskAirPlane);
+```
+
+```text
+source.copyTo(destination, mask)
+```
+
+- `airplane` -> 복사할 원본
+- `roi` -> 결과가 들어갈 배경의 일부 영역
+- `maskAirPlane` -> 복사할 pixel 위치
+
+mask 값이 0인 위치는 배경이 그대로 남고, 0이 아닌 위치에는 비행기 pixel이 복사된다.
+
+정리:
+- `setTo(value, mask)` -> 선택된 위치를 같은 값으로 변경
+- `copyTo(destination, mask)` -> 선택된 위치에 source pixel 복사
+
+## 합성 영상 크기 맞추기
+
+원본 비행기와 mask를 같은 비율로 줄였다.
+
+```cpp
+resize(
+    airplane,
+    airplane,
+    Size(),
+    0.5,
+    0.5,
+    INTER_AREA
+);
+
+resize(
+    maskAirPlane,
+    maskAirPlane,
+    Size(),
+    0.5,
+    0.5,
+    INTER_NEAREST
+);
+```
+
+원본 크기는 `600 x 400`이고 0.5배 resize 후에는 `300 x 200`이 된다.
+
+- 일반 컬러 영상 축소 -> `INTER_AREA`
+- mask 축소 -> `INTER_NEAREST`
+
+mask에 `INTER_NEAREST`를 사용하면 중간 grayscale 값이 새로 생기는 것을 줄일 수 있다.<br>
+이진 mask의 경계를 유지할 때 자주 사용한다.
+
+주의:
+- source 영상과 mask는 resize 후에도 같은 크기여야 함
+- mask를 일반 보간으로 resize하면 경계에 중간값이 생길 수 있음
+- OpenCV mask는 0이 아닌 값을 모두 선택하므로 중간값도 선택된 pixel로 처리됨
+
+## ROI 위에서 비행기 이동
+
+매 frame마다 배경을 깊은 복사하고 현재 x 좌표에 ROI를 만든다.
+
+```cpp
+Mat frame = sky.clone();
+Rect roiRect(
+    x,
+    y,
+    airplane.cols,
+    airplane.rows
+);
+
+Mat roi = frame(roiRect);
+airplane.copyTo(roi, maskAirPlane);
+```
+
+배경 원본 `sky`를 직접 수정하지 않기 때문에 이전 위치의 비행기가 남지 않는다.
+
+```text
+sky   -> 변하지 않는 배경
+frame -> 현재 화면을 만들기 위한 복사본
+roi   -> 비행기가 들어갈 현재 영역
+```
+
+x 좌표는 `dx`만큼 이동한다.
+
+```cpp
+x += dx;
+```
+
+경계에 도달하면 이동 방향을 반대로 바꾼다.
+
+```cpp
+if (x <= 0 ||
+    x + airplane.cols >= sky.cols)
+{
+    dx = -dx;
+    flip(airplane, airplane, 1);
+    flip(maskAirPlane, maskAirPlane, 1);
+}
+```
+
+비행기와 mask를 둘 다 좌우 반전해서 이동 방향에 맞는 모습으로 바꾼다.
+
+현재 크기:
+
+```text
+배경 width       = 600
+비행기 width     = 300
+가능한 x 좌표 범위 = 0 ~ 300
+```
+
+정리:
+- ROI는 반드시 배경 범위 안에 있어야 함
+- source와 mask를 함께 flip해야 모양과 선택 영역이 일치함
+- 매 frame 배경을 clone하면 이동 흔적이 남지 않음
+- mask를 이용하면 사각형 전체가 아니라 원하는 모양만 합성할 수 있음

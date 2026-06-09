@@ -1,0 +1,11 @@
+%YAML:1.0
+---
+name: Kim Chan Ho
+age: 33
+point: [ 100, 200 ]
+scores: [ 3.14000010e+00, 6.65999985e+00, 9.14000034e+00 ]
+data: !!opencv-matrix
+   rows: 2
+   cols: 2
+   dt: f
+   data: [ 1., 1.50000000e+00, 2., 3.20000005e+00 ]
