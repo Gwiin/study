@@ -28,6 +28,7 @@ add_subdirectory(c/ds/queue/myQueue1)
 add_subdirectory(c/ds/queue/myQueue3)
 add_subdirectory(c/projects/bowlingGame)
 add_subdirectory(opencv)
+add_subdirectory(opencv/part2)
 
 ExternalProject_Add(pico_project
 	SOURCE_DIR ${CMAKE_SOURCE_DIR}/embedded/pico

@@ -1455,3 +1455,399 @@ cmake --build opencv/build --target 06_video
 ```text
 [100%] Built target 06_video
 ```
+
+## 카메라 영상 파일로 저장
+
+`09_videoSave.cpp`
+
+카메라에서 읽은 frame을 화면에 보여주는 것뿐만 아니라 동영상 파일로 저장해보았다.
+
+```cpp
+int w = 640;
+int h = 480;
+double fps = 30.0;
+int fourcc = VideoWriter::fourcc('D','I','V','X');
+
+VideoWriter outVideo(
+    folderPath + "flip_roi_inverse.avi",
+    fourcc,
+    fps,
+    Size(w, h)
+);
+```
+
+동영상 저장에는 `VideoWriter`를 사용한다.
+
+```text
+VideoWriter(파일 경로, codec, FPS, frame 크기)
+```
+
+- 파일 경로 -> 저장할 동영상 이름과 위치
+- `fourcc` -> 동영상 압축 codec
+- `fps` -> 초당 저장할 frame 수
+- `Size(w, h)` -> 저장할 frame 크기
+
+현재 코드는 AVI 파일에 `DIVX` codec을 사용하도록 요청했다.
+
+```cpp
+VideoWriter::fourcc('D', 'I', 'V', 'X');
+```
+
+FourCC는 4개의 문자로 codec을 표현하는 방식이다.
+
+주의할 점:
+- 사용할 수 있는 codec은 OpenCV build, 운영체제, 설치된 codec에 따라 다를 수 있음
+- 파일 확장자와 codec 조합도 확인해야 함
+- `VideoWriter`가 정상적으로 열렸는지 확인하는 것이 안전함
+
+```cpp
+if (!outVideo.isOpened())
+{
+    cerr << "동영상 파일을 열 수 없습니다." << endl;
+    return 1;
+}
+```
+
+## frame 저장
+
+카메라에서 frame을 읽고 처리한 다음 `VideoWriter`에 전달한다.
+
+```cpp
+cap >> frame;
+
+outVideo << frame;
+```
+
+`outVideo << frame`을 loop 안에서 반복하면 각 이미지가 동영상의 frame으로 저장된다.
+
+주의할 점:
+- 저장하는 `frame`의 크기는 `VideoWriter`를 만들 때 전달한 크기와 같아야 함
+- 카메라에 `640 x 480`을 요청해도 실제 적용된 크기는 다를 수 있음
+- `frame.empty()`를 확인한 다음 저장하는 것이 안전함
+
+```cpp
+cap >> frame;
+
+if (frame.empty())
+{
+    cerr << "frame을 읽을 수 없습니다." << endl;
+    break;
+}
+
+outVideo << frame;
+```
+
+카메라의 실제 크기는 `get()`으로 확인할 수 있다.
+
+```cpp
+int w = static_cast<int>(cap.get(CAP_PROP_FRAME_WIDTH));
+int h = static_cast<int>(cap.get(CAP_PROP_FRAME_HEIGHT));
+double fps = cap.get(CAP_PROP_FPS);
+```
+
+환경에 따라 카메라가 반환하는 FPS가 정확하지 않거나 0일 수도 있어서 확인이 필요하다.
+
+## 영상 좌우 반전
+
+```cpp
+flip(frame, frame, 1);
+```
+
+`flip()`은 영상을 뒤집는 함수이다.
+
+```text
+flip(source, destination, flipCode)
+```
+
+`flipCode`에 따라 반전 방향이 달라진다.
+
+- `0` -> 위아래 반전
+- 양수 -> 좌우 반전
+- 음수 -> 위아래와 좌우 모두 반전
+
+현재 코드의 `1`은 좌우 반전이다.<br>
+카메라 화면을 거울처럼 보이게 만들 때 사용할 수 있다.
+
+## 움직이는 ROI
+
+가로로 이동하는 `200 x 200` ROI를 만들었다.
+
+```cpp
+int y = (480 - 200) / 2;
+int move_x = 0;
+
+Mat roi = frame(Rect(move_x, y, 200, 200));
+```
+
+- `move_x` -> ROI의 시작 x 좌표
+- `y` -> ROI의 시작 y 좌표
+- `200, 200` -> ROI의 width와 height
+
+loop가 한 번 실행될 때마다 x 좌표를 증가시킨다.
+
+```cpp
+move_x += 1;
+
+if (move_x > 340)
+{
+    move_x = 0;
+}
+```
+
+frame width가 640이고 ROI width가 200이므로 시작 x 좌표의 최댓값은 440이다.
+
+```text
+640 - 200 = 440
+```
+
+현재 코드는 `340`에서 처음으로 돌아가므로 화면 오른쪽 끝까지 이동하지는 않는다.<br>
+오른쪽 끝까지 이동하려면 frame width를 기준으로 범위를 계산할 수 있다.
+
+```cpp
+if (move_x > frame.cols - 200)
+{
+    move_x = 0;
+}
+```
+
+정리:
+- `frame.cols` -> frame width
+- `frame.rows` -> frame height
+- ROI의 오른쪽과 아래쪽이 frame 범위를 벗어나면 assertion error가 날 수 있음
+
+## ROI 색상 반전
+
+```cpp
+Mat roi = frame(Rect(move_x, y, 200, 200));
+roi = ~roi;
+```
+
+`~` 연산은 각 pixel의 bit를 반전한다.
+
+8bit 영상에서는 아래처럼 생각할 수 있다.
+
+```text
+결과 pixel = 255 - 원래 pixel
+```
+
+예:
+
+```text
+0   -> 255
+50  -> 205
+255 -> 0
+```
+
+ROI는 원본 frame의 일부를 가리키므로 ROI에 연산 결과를 저장하면 frame의 해당 영역에서 변화가 보인다.
+
+의도를 더 명확하게 쓰려면 `bitwise_not()`을 사용할 수도 있다.
+
+```cpp
+bitwise_not(roi, roi);
+```
+
+ROI 주위에는 빨간색 사각형을 그렸다.
+
+```cpp
+rectangle(
+    frame,
+    Rect(move_x, y, 200, 200),
+    Color::Red,
+    2
+);
+```
+
+- `Color::Red` -> BGR `(0, 0, 255)`
+- `2` -> 선 두께
+
+현재 처리 순서에서는 좌우 반전, ROI 색상 반전, 사각형 그리기가 끝난 frame이 파일에 저장된다.
+
+## VideoCapture와 VideoWriter 해제
+
+```cpp
+cap.release();
+outVideo.release();
+destroyAllWindows();
+```
+
+- `cap.release()` -> 카메라 장치 해제
+- `outVideo.release()` -> 동영상 파일 저장 종료
+- `destroyAllWindows()` -> OpenCV 창 닫기
+
+`VideoWriter`는 해제될 때 파일의 마무리 정보를 기록할 수 있다.<br>
+프로그램이 비정상 종료되면 동영상 파일이 제대로 재생되지 않을 수도 있다.
+
+정리:
+- `VideoCapture` -> frame 입력
+- 영상 처리 -> `flip`, ROI 반전, `rectangle`
+- `VideoWriter` -> 처리된 frame 저장
+- ESC를 누르면 loop를 종료하고 장치와 파일을 해제
+
+## 기본 도형 그리기
+
+`10_drawing.cpp`
+
+빈 영상 위에 선, 화살표, marker를 그려보았다.
+
+```cpp
+Mat img(400, 600, CV_8UC3, Color::White);
+```
+
+```text
+Mat(rows, cols, type, color)
+Mat(height, width, type, color)
+```
+
+- height -> 400
+- width -> 600
+- channel -> 3
+- 초기 색상 -> 흰색
+
+주의:
+- `Mat(400, 600, ...)`은 height, width 순서
+- `Point(x, y)`는 width 방향, height 방향 순서
+
+## clone으로 매 frame 초기화
+
+```cpp
+while (true)
+{
+    Mat img2 = img.clone();
+
+    // 도형 그리기
+}
+```
+
+반복문 안에서 원본 흰색 영상 `img`를 깊은 복사한다.
+
+매 frame마다 새로운 흰색 배경에서 도형을 다시 그리기 때문에 이전 위치의 선이 계속 남지 않는다.
+
+```text
+clone() 사용     -> 현재 위치의 도형만 보임
+같은 Mat에 계속 그림 -> 이동 경로가 누적되어 보일 수 있음
+```
+
+정리:
+- `img` -> 변하지 않는 기본 배경
+- `img2` -> 현재 frame에 사용할 복사본
+- 애니메이션처럼 위치만 바꾸고 싶을 때 매번 배경을 복사할 수 있음
+
+## line으로 선 그리기
+
+```cpp
+line(
+    img2,
+    Point(50, 50),
+    Point(200 + a, 100 + b),
+    Color::Blue,
+    3
+);
+```
+
+```text
+line(image, startPoint, endPoint, color, thickness)
+```
+
+- 시작점 -> `(50, 50)`
+- 끝점 -> `(200 + a, 100 + b)`
+- 색상 -> 파란색
+- 선 두께 -> 3
+
+`a`, `b`가 계속 증가하므로 시작점은 고정되고 끝점은 오른쪽 아래 방향으로 이동한다.
+
+```cpp
+a += 1;
+b += 2;
+```
+
+x는 한 번에 1씩, y는 한 번에 2씩 증가한다.
+
+## arrowedLine으로 화살표 그리기
+
+```cpp
+arrowedLine(
+    img2,
+    Point(50, 100),
+    Point(200, 50),
+    Color::Orange,
+    3,
+    LINE_8
+);
+```
+
+`arrowedLine()`은 끝부분에 화살표 모양이 있는 선을 그린다.
+
+- 시작점 -> `(50, 100)`
+- 끝점 -> `(200, 50)`
+- 색상 -> 주황색
+- 두께 -> 3
+- `LINE_8` -> 8-connected line 방식
+
+현재 화살표 좌표는 `a`, `b`를 사용하지 않으므로 움직이지 않는다.
+
+## drawMarker로 marker 그리기
+
+```cpp
+drawMarker(
+    img2,
+    Point(400 - a, 600 - b),
+    Color::Red,
+    MARKER_STAR
+);
+```
+
+`drawMarker()`는 지정한 좌표에 marker 모양을 그린다.
+
+- 위치 -> `Point(x, y)`
+- 색상 -> 빨간색
+- 모양 -> 별 모양
+
+현재 영상 크기는 width 600, height 400이다.
+
+```text
+x 범위: 0 ~ 599
+y 범위: 0 ~ 399
+```
+
+하지만 marker의 처음 좌표는 `(400, 600)`이다.<br>
+x는 범위 안이지만 y가 영상 높이보다 커서 marker가 화면에 보이지 않는다.
+
+화면 안에서 시작하려면 y 좌표를 400보다 작은 값으로 잡아야 한다.
+
+```cpp
+drawMarker(
+    img2,
+    Point(400 - a, 300 - b),
+    Color::Red,
+    MARKER_STAR
+);
+```
+
+`a`, `b`가 계속 증가하면 나중에는 x나 y가 음수가 될 수 있다.<br>
+계속 반복할 경우 좌표를 초기화하거나 화면 범위를 확인하는 처리가 필요하다.
+
+## waitKey로 애니메이션 속도 조절
+
+```cpp
+if (waitKey(1000 / 30) == 27)
+    break;
+```
+
+초당 약 30번 화면을 갱신하도록 약 33ms를 기다린다.
+
+```text
+1000ms / 30fps = 약 33ms
+```
+
+주의:
+- `waitKey()`의 시간은 정확한 FPS를 보장하는 값은 아님
+- 도형 처리 시간과 운영체제 scheduling에 따라 실제 속도는 달라질 수 있음
+- ESC key 값 `27`을 확인해서 loop를 종료함
+
+정리:
+- `line()` -> 일반 선
+- `arrowedLine()` -> 화살표 선
+- `drawMarker()` -> 지정한 모양의 marker
+- `Point(x, y)`에서 x는 가로, y는 세로 좌표
+- 영상 밖의 좌표는 도형이 잘리거나 보이지 않을 수 있음
+- `clone()`으로 매 frame 배경을 초기화하면 도형의 이동 흔적이 남지 않음
