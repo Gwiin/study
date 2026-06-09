@@ -1851,3 +1851,517 @@ if (waitKey(1000 / 30) == 27)
 - `Point(x, y)`에서 x는 가로, y는 세로 좌표
 - 영상 밖의 좌표는 도형이 잘리거나 보이지 않을 수 있음
 - `clone()`으로 매 frame 배경을 초기화하면 도형의 이동 흔적이 남지 않음
+
+## rectangle 옵션 추가 확인
+
+`10_drawing.cpp`
+
+사각형을 그릴 때 선 종류까지 전달해보았다.
+
+```cpp
+rectangle(
+    img2,
+    Rect(300, 50, 50 + c, 50 + c),
+    Color::Red,
+    2,
+    LINE_AA
+);
+```
+
+```text
+rectangle(image, rect, color, thickness, lineType)
+```
+
+- `Rect(300, 50, ...)` -> 사각형의 왼쪽 위 좌표
+- `50 + c` -> width와 height
+- `Color::Red` -> 빨간색
+- `2` -> 선 두께
+- `LINE_AA` -> 경계선을 부드럽게 그리는 anti-aliasing 방식
+
+현재 코드에서는 `c`의 초기값이 0이고 loop 안에서 증가시키지 않는다.
+
+```cpp
+int a = 0, b = 0, c = 0;
+```
+
+그래서 현재 사각형 크기는 계속 `50 x 50`이다.<br>
+크기가 커지는 모습을 보려면 loop 안에서 `c`를 변경해야 한다.
+
+```cpp
+c += 1;
+```
+
+주의:
+- `c`가 계속 증가하면 사각형이 영상 범위를 넘어갈 수 있음
+- 반복 애니메이션으로 만들려면 일정 크기에서 다시 0으로 초기화할 수 있음
+
+## circle로 원 그리기
+
+```cpp
+circle(
+    img2,
+    Point(350, 150),
+    20,
+    Color::Yellow,
+    2,
+    LINE_AA
+);
+```
+
+```text
+circle(image, center, radius, color, thickness, lineType)
+```
+
+- 중심 좌표 -> `(350, 150)`
+- 반지름 -> 20
+- 색상 -> 노란색
+- 두께 -> 2
+- 선 종류 -> `LINE_AA`
+
+원의 내부를 채우려면 두께에 `FILLED` 또는 `-1`을 사용할 수 있다.
+
+```cpp
+circle(img2, Point(350, 150), 20, Color::Yellow, FILLED, LINE_AA);
+```
+
+정리:
+- `Point`는 원의 중심 좌표
+- 크기는 width, height가 아니라 반지름으로 지정
+- 양수 thickness는 외곽선, `FILLED`는 내부 채우기
+
+## ellipse로 타원과 호 그리기
+
+```cpp
+ellipse(
+    img2,
+    Point(500, 50),
+    Size(60, 30),
+    20,
+    0,
+    0 + c,
+    Color::Cyan,
+    FILLED,
+    LINE_AA
+);
+```
+
+```text
+ellipse(image, center, axes, angle,
+        startAngle, endAngle, color, thickness, lineType)
+```
+
+- 중심 좌표 -> `(500, 50)`
+- `Size(60, 30)` -> 가로와 세로 반지름
+- `20` -> 타원 자체의 회전 각도
+- `0` -> 호의 시작 각도
+- `c` -> 호의 끝 각도
+- `FILLED` -> 내부 채우기
+
+`Size(60, 30)`은 전체 크기 `60 x 30`이 아니라 타원의 반지름 크기이다.<br>
+그래서 전체 폭과 높이는 대략 `120 x 60`으로 생각할 수 있다.
+
+현재 코드에서는 `c`가 0이므로 시작 각도와 끝 각도가 둘 다 0이다.<br>
+이 상태에서는 그려지는 호의 범위가 없어서 타원이 보이지 않을 수 있다.
+
+전체 타원을 그리려면 아래처럼 끝 각도를 360으로 준다.
+
+```cpp
+ellipse(
+    img2,
+    Point(500, 50),
+    Size(60, 30),
+    20,
+    0,
+    360,
+    Color::Cyan,
+    FILLED,
+    LINE_AA
+);
+```
+
+`c`를 증가시키면 타원이 조금씩 채워지는 애니메이션도 만들 수 있다.
+
+```cpp
+c += 3;
+
+if (c > 360)
+    c = 0;
+```
+
+정리:
+- `angle` -> 타원 전체의 기울기
+- `startAngle`, `endAngle` -> 어느 범위의 호를 그릴지 결정
+- 전체 타원은 보통 `0 ~ 360`
+- `LINE_AA`를 사용하면 곡선 경계가 조금 더 부드럽게 보임
+
+## putText로 영문 출력
+
+`13_font_.cpp`
+
+OpenCV 기본 font를 사용해서 영상 위에 문자열을 출력했다.
+
+```cpp
+putText(
+    img,
+    "SIMPLEX",
+    Point(20 + a, 70),
+    FONT_HERSHEY_SIMPLEX,
+    1.5,
+    Color::Red,
+    2,
+    LINE_AA
+);
+```
+
+```text
+putText(image, text, origin, fontFace,
+        fontScale, color, thickness, lineType)
+```
+
+- `text` -> 출력할 문자열
+- `origin` -> 문자열 기준 좌표
+- `fontFace` -> 글꼴 종류
+- `fontScale` -> 글자 크기 배율
+- `color` -> 글자 색
+- `thickness` -> 획 두께
+- `lineType` -> 선을 그리는 방식
+
+`Point(20 + a, 70)`은 글자의 왼쪽 아래 기준점으로 사용된다.<br>
+일반적인 사각형의 왼쪽 위 좌표와 기준이 달라서 y 좌표를 정할 때 주의해야 한다.
+
+## Hershey font 종류
+
+```cpp
+FONT_HERSHEY_SIMPLEX
+FONT_HERSHEY_DUPLEX
+FONT_HERSHEY_PLAIN
+```
+
+OpenCV 기본 `putText()`는 Hershey stroke font를 제공한다.
+
+- `FONT_HERSHEY_SIMPLEX` -> 기본적인 글꼴
+- `FONT_HERSHEY_DUPLEX` -> SIMPLEX보다 획 표현이 조금 더 복잡함
+- `FONT_HERSHEY_PLAIN` -> 비교적 단순하고 작은 글꼴
+
+font에 italic flag를 추가할 수도 있다.
+
+```cpp
+FONT_HERSHEY_SIMPLEX | FONT_ITALIC
+```
+
+`FONT_ITALIC`은 단독 font 종류로 사용하기보다 기존 Hershey font와 bit OR 연산으로 결합한다.
+
+```cpp
+putText(
+    img,
+    "SIMPLEX ITALIC",
+    Point(20 + a, 140),
+    FONT_HERSHEY_SIMPLEX | FONT_ITALIC,
+    1.5,
+    Color::Red,
+    2,
+    LINE_AA
+);
+```
+
+정리:
+- OpenCV 기본 `putText()`는 간단한 영문과 숫자 표시에 편리함
+- font 크기는 pixel 높이를 직접 지정하는 것이 아니라 `fontScale` 배율로 조절
+- 한글 같은 UTF-8 문자는 기본 Hershey font로 제대로 표시되지 않을 수 있음
+
+## 움직이는 문자열
+
+문자열의 x 좌표에 변수 `a`를 더했다.
+
+```cpp
+Point(20 + a, 70)
+```
+
+loop가 한 번 실행될 때마다 `a`를 증가시킨다.
+
+```cpp
+a += 1;
+```
+
+그래서 문자열이 왼쪽에서 오른쪽으로 이동한다.
+
+화면 오른쪽을 지나면 다시 왼쪽에서 시작하도록 값을 변경했다.
+
+```cpp
+if (a > img.cols)
+    a = -300;
+```
+
+- `img.cols` -> 영상 width
+- `-300` -> 문자열이 화면 왼쪽 바깥에서 다시 들어오게 하기 위한 값
+
+주의:
+- 문자열마다 실제 width가 다르므로 `-300`은 대략 정한 값
+- 정확한 문자열 width는 `getTextSize()`로 구할 수 있음
+
+## colors.hpp namespace 오류
+
+처음 코드에서는 색상을 아래처럼 사용했다.
+
+```cpp
+Mat img(400, 600, CV_8UC3, white);
+putText(img, "TEXT", Point(20, 50),
+        FONT_HERSHEY_SIMPLEX, 2, red);
+```
+
+빌드할 때 색상 이름을 찾을 수 없다는 에러가 발생했다.
+
+```text
+error: 'white' was not declared in this scope
+error: 'red' was not declared in this scope
+```
+
+`colors.hpp`의 색상은 `Color` namespace 안에 있고 이름도 대문자로 시작한다.
+
+```cpp
+namespace Color
+{
+    inline const cv::Scalar White{255, 255, 255};
+    inline const cv::Scalar Red{0, 0, 255};
+}
+```
+
+그래서 아래처럼 사용해야 한다.
+
+```cpp
+Color::White
+Color::Red
+Color::Blue
+Color::Black
+```
+
+header include도 컴퓨터의 전체 경로보다 현재 project 기준 경로를 사용하는 것이 좋다.
+
+```cpp
+#include "colors.hpp"
+```
+
+정리:
+- namespace 안의 값은 `namespace이름::값` 형태로 접근
+- C++은 대문자와 소문자를 구분
+- 절대경로 include는 project 위치가 바뀌면 깨질 수 있음
+
+## FreeType으로 한글 출력
+
+`14_freetype.cpp`
+
+OpenCV 기본 `putText()` 대신 FreeType module과 TTF font 파일을 사용해서 한글을 출력했다.
+
+```cpp
+#include <opencv2/freetype.hpp>
+```
+
+현재 실습 환경에서는 `opencv_freetype` module을 사용할 수 있고 아래 font 파일도 존재한다.
+
+```text
+opencv/data/NanumPenScript-Regular.ttf
+```
+
+FreeType 객체를 만들고 font 파일을 불러온다.
+
+```cpp
+Ptr<cv::freetype::FreeType2> ft2 =
+    freetype::createFreeType2();
+
+ft2->loadFontData(fontpath, 0);
+```
+
+- `createFreeType2()` -> FreeType 객체 생성
+- `loadFontData()` -> TTF 또는 지원되는 font 파일 읽기
+- 두 번째 argument `0` -> font collection 안에서 사용할 face index
+
+현재 코드는 이 과정을 함수로 묶었다.
+
+```cpp
+Ptr<cv::freetype::FreeType2>
+rapperFreeTypeCenterSetup(const String &fontpath)
+{
+    Ptr<cv::freetype::FreeType2> ft2 =
+        freetype::createFreeType2();
+
+    ft2->loadFontData(fontpath, 0);
+    return ft2;
+}
+```
+
+`Ptr`은 OpenCV에서 사용하는 smart pointer이다.<br>
+FreeType 객체의 수명을 직접 `delete`하지 않아도 관리할 수 있다.
+
+## FreeType putText
+
+```cpp
+ft2->putText(
+    img,
+    text,
+    textRect.tl(),
+    textHeight,
+    color,
+    thickness,
+    line_type,
+    false
+);
+```
+
+기본 `cv::putText()`와 argument 구성이 조금 다르다.
+
+```text
+FreeType putText(image, text, origin, fontHeight,
+                 color, thickness, lineType, bottomLeftOrigin)
+```
+
+- `fontHeight` -> pixel 단위의 font 높이
+- `thickness`가 음수 -> glyph 내부를 채움
+- `thickness`가 양수 -> 지정한 두께의 외곽선으로 그림
+- `bottomLeftOrigin=false` -> 영상 원점을 왼쪽 위 기준으로 사용
+
+현재 코드는 `thickness=2`를 전달하므로 글자가 외곽선 형태로 그려진다.<br>
+채워진 글자를 원하면 음수를 사용할 수 있다.
+
+```cpp
+ft2->putText(
+    img,
+    text,
+    textOrg,
+    textHeight,
+    color,
+    -1,
+    LINE_AA,
+    false
+);
+```
+
+주의:
+- 입력 영상은 현재 FreeType module 기준으로 `CV_8UC3` 형식을 사용하는 것이 안전함
+- font 경로가 틀리면 font data를 불러올 수 없음
+- 다른 컴퓨터에서는 OpenCV가 FreeType module과 함께 build되었는지 확인 필요
+
+## getTextSize로 문자열 영역 구하기
+
+문자열을 그리기 전에 차지할 영역을 계산했다.
+
+```cpp
+Size textSize =
+    ft2->getTextSize(text, textHeight, -1, 0)
+    + Size(0, 20);
+```
+
+```text
+getTextSize(text, fontHeight, thickness, baseline)
+```
+
+- 반환값 -> 문자열을 감싸는 대략적인 width와 height
+- `-1` -> 채워진 glyph 기준 두께
+- 마지막 `0` -> baseline 결과를 따로 받지 않음
+- `Size(0, 20)` -> 아래쪽 여백을 위해 height에 20 추가
+
+현재 크기 계산은 `thickness=-1`을 사용하지만 실제 출력 함수에는 `thickness=2`를 전달한다.<br>
+계산 기준과 출력 기준이 달라서 사각형과 글자 외곽선 크기가 조금 다르게 보일 수 있다.
+
+정확하게 맞추려면 같은 thickness 값을 사용한다.
+
+```cpp
+Size textSize =
+    ft2->getTextSize(text, textHeight, thickness, 0)
+    + Size(0, 20);
+```
+
+계산한 크기로 `Rect`를 만든다.
+
+```cpp
+Point top_left(
+    textOrg.x - textSize.width,
+    textOrg.y - textSize.height
+);
+
+Rect textRect(top_left, textSize);
+```
+
+현재 계산 방식에서는 `textOrg`가 사각형의 중앙점은 아니다.<br>
+사각형의 오른쪽 아래를 기준으로 왼쪽 위 좌표를 구하는 형태에 가깝다.
+
+```text
+textRect 오른쪽 아래 위치 ~= textOrg
+```
+
+함수 이름에는 `Center`가 들어가 있지만 실제 중앙 정렬을 하려면 width와 height의 절반을 사용해야 한다.
+
+```cpp
+Point topLeft(
+    textOrg.x - textSize.width / 2,
+    textOrg.y - textSize.height / 2
+);
+```
+
+정렬 기준은 원하는 결과에 따라 직접 정해야 한다.
+
+## 텍스트 영역 사각형 표시
+
+```cpp
+if (withRect)
+{
+    rectangle(img, textRect, color, 3, line_type);
+}
+```
+
+`withRect`가 `true`이면 계산한 문자열 영역 주위에 사각형을 그린다.
+
+확인할 수 있는 점:
+- 문자열의 예상 width와 height
+- 문자열 이동에 따라 `Rect`도 같이 이동하는지
+- 기준 좌표와 실제 문자열 위치가 맞는지
+
+현재 실습에서는 기준 위치를 확인하기 위해 빨간색 원도 같이 그렸다.
+
+```cpp
+circle(img, Point(a, 300), 6, Color::Red, -1);
+```
+
+`-1`은 원 내부를 채우는 의미이다.<br>
+`FILLED`를 사용해도 같은 목적이다.
+
+## 여러 한글 문자열 이동
+
+```cpp
+rapperFreeTypeCenter(
+    img,
+    ft2,
+    text,
+    100,
+    2,
+    LINE_AA,
+    Color::Blue,
+    Point(a, 300),
+    true
+);
+```
+
+세 문자열에 서로 다른 위치 변수와 증가값을 사용했다.
+
+```cpp
+a += 1;
+b += 2;
+c += 3;
+```
+
+- 첫 번째 문자열 -> 한 frame마다 1 pixel 이동
+- 두 번째 문자열 -> 한 frame마다 2 pixel 이동
+- 세 번째 문자열 -> 한 frame마다 3 pixel 이동
+
+그래서 같은 loop 안에서도 서로 다른 속도로 움직인다.
+
+주의:
+- 현재 코드에는 좌표를 초기화하는 부분이 없음
+- 문자열이 화면 오른쪽을 지나면 계속 영상 범위 밖으로 이동함
+- 반복해서 보이게 하려면 각 좌표를 `img.cols`와 비교해서 초기화해야 함
+
+정리:
+- 기본 `putText()` -> Hershey font를 사용하는 간단한 영문 출력
+- FreeType `putText()` -> TTF font를 불러와 UTF-8 한글 출력 가능
+- `getTextSize()` -> 문자열이 차지할 영역 계산
+- `Rect`를 같이 그리면 텍스트 좌표와 영역을 확인하기 편함
+- font 파일 경로와 OpenCV FreeType module 지원 여부를 확인해야 함
