@@ -3096,3 +3096,759 @@ if (x <= 0 ||
 - source와 mask를 함께 flip해야 모양과 선택 영역이 일치함
 - 매 frame 배경을 clone하면 이동 흔적이 남지 않음
 - mask를 이용하면 사각형 전체가 아니라 원하는 모양만 합성할 수 있음
+
+---
+
+## 영상의 밝기 조절
+
+`23_brightness.cpp`에서는 grayscale 영상의 모든 pixel에 같은 값을 더해서 밝기를 조절했다.
+
+```cpp
+Mat img = imread(
+    folderPath + "lenna.bmp",
+    IMREAD_GRAYSCALE
+);
+
+Mat img2;
+add(img, 100, img2);
+
+Mat img3 = img + 100;
+```
+
+- 양수를 더하면 영상이 밝아짐
+- 음수를 더하면 영상이 어두워짐
+- `add()`와 `Mat + scalar` 연산은 결과를 영상 type의 범위에 맞게 포화시킴
+
+현재 영상은 `CV_8UC1`이므로 pixel 값의 범위는 `0 ~ 255`이다.
+
+```text
+200 + 100 -> 255
+```
+
+300을 저장하지 않고 최댓값인 255가 된다.
+
+### pixel에 직접 더하기
+
+```cpp
+Mat img4(img.rows, img.cols, img.type());
+
+for (int j = 0; j < img.rows; j++)
+{
+    for (int i = 0; i < img.cols; i++)
+    {
+        img4.at<uchar>(j, i)
+            = img.at<uchar>(j, i) + 100;
+    }
+}
+```
+
+- `j` -> row, y 좌표
+- `i` -> column, x 좌표
+- `at<uchar>(j, i)` -> grayscale pixel 하나에 접근
+
+주의할 점:
+- 위 코드는 `uchar`에 직접 대입하므로 값이 255를 넘으면 포화되지 않고 overflow가 발생할 수 있음
+- 예를 들어 200에 100을 더한 300은 `uchar` 범위에서 다시 작은 값으로 돌아갈 수 있음
+- 직접 pixel을 계산할 때는 `saturate_cast<uchar>()`를 사용하는 것이 안전하다
+
+```cpp
+img4.at<uchar>(j, i) =
+    saturate_cast<uchar>(
+        img.at<uchar>(j, i) + 100
+    );
+```
+
+정리:
+- 밝기 조절은 모든 pixel에 같은 값을 더하거나 빼는 연산
+- OpenCV 산술 함수는 보통 포화 연산을 사용
+- `uchar`에 직접 계산 결과를 넣을 때는 overflow를 확인해야 함
+
+## 명암비 조절
+
+명암비는 밝은 부분과 어두운 부분의 차이를 조절하는 것이다.
+
+```cpp
+Mat img = imread(
+    folderPath + "hawkes.bmp",
+    IMREAD_GRAYSCALE
+);
+
+Mat img2 = 2.f * img;
+```
+
+모든 pixel 값에 2를 곱한다.
+
+- 어두운 값도 커짐
+- 밝은 값은 더 빠르게 255에 도달함
+- 전체 밝기도 같이 올라갈 수 있음
+
+중간 밝기 128을 기준으로 명암비를 조절할 수도 있다.
+
+```cpp
+Mat img3 = img + (img - 128) * 1.f;
+```
+
+수식으로 보면 아래와 같다.
+
+```text
+dst = src + (src - 128) * alpha
+```
+
+- 128보다 밝은 pixel -> 더 밝아짐
+- 128보다 어두운 pixel -> 더 어두워짐
+- 128 근처의 pixel -> 변화가 작음
+
+현재 `alpha`는 `1.f`이므로 128을 기준으로 차이를 두 배로 만든다.
+
+## 명암비 스트레칭
+
+영상에서 실제로 사용 중인 최솟값과 최댓값을 `0 ~ 255` 범위로 늘릴 수 있다.
+
+```cpp
+double min, max;
+minMaxLoc(img, &min, &max);
+
+Mat img4 =
+    (img - min) * 255 / (max - min);
+```
+
+```text
+원본 최솟값 -> 0
+원본 최댓값 -> 255
+```
+
+좁은 범위에 모여 있던 밝기값을 넓게 사용하므로 명암비가 좋아질 수 있다.
+
+주의할 점:
+- 모든 pixel 값이 같으면 `max - min`이 0이 됨
+- 일반화해서 함수로 만들 때는 0으로 나누는 경우를 확인해야 함
+
+## 히스토그램 평활화
+
+```cpp
+Mat img5;
+equalizeHist(img, img5);
+```
+
+`equalizeHist()`는 grayscale 영상의 밝기 분포가 더 넓게 사용되도록 변환한다.
+
+- 입력 영상은 8bit 1 channel이어야 함
+- 단순히 최솟값과 최댓값만 늘리는 방식과는 다름
+- 누적 히스토그램을 이용해 밝기값을 다시 배치함
+
+정리:
+- 곱셈 -> 간단한 명암비 증가, 밝기도 같이 변할 수 있음
+- 중심 기준 조절 -> 기준 밝기를 중심으로 차이를 조절
+- stretching -> 현재 min, max를 전체 범위로 확장
+- equalization -> 밝기 분포를 기준으로 다시 배치
+
+## grayscale 히스토그램 계산
+
+히스토그램은 각 밝기값을 가진 pixel이 몇 개인지 나타낸다.
+
+```cpp
+Mat calcGrayHist(const Mat &img)
+{
+    CV_Assert(img.type() == CV_8UC1);
+
+    Mat hist;
+    int channel[] = {0};
+    int dims = 1;
+    const int histSize[] = {256};
+    float graylevel[] = {0, 256};
+    const float *ranges[] = {graylevel};
+
+    calcHist(
+        &img,
+        1,
+        channel,
+        noArray(),
+        hist,
+        dims,
+        histSize,
+        ranges
+    );
+
+    return hist;
+}
+```
+
+설정값:
+
+```text
+channel  = 0
+dims     = 1
+histSize = 256
+range    = [0, 256)
+```
+
+- grayscale은 channel이 1개라서 0번 channel 사용
+- 밝기값 `0 ~ 255`를 256개의 구간으로 계산
+- range의 마지막 256은 포함되지 않는 끝값
+- mask 자리에 `noArray()`를 전달해서 전체 영상을 계산
+
+`calcHist()` 결과는 현재 설정에서 보통 `CV_32FC1`이고 `256 x 1` 형태이다.
+
+```cpp
+CV_Assert(hist.type() == CV_32FC1);
+CV_Assert(hist.size() == Size(1, 256));
+```
+
+`Size(width, height)` 순서이므로 `Size(1, 256)`은 1열 256행이다.
+
+## 히스토그램 영상으로 표시
+
+```cpp
+double histMax;
+minMaxLoc(hist, 0, &histMax);
+
+Mat imgHist(
+    100,
+    256,
+    CV_8UC1,
+    Scalar(255)
+);
+```
+
+- width 256 -> 밝기값 0부터 255까지 표시
+- height 100 -> 막대 높이를 100 pixel 안으로 정규화
+- 배경은 흰색
+
+각 밝기값의 빈도에 따라 검은 선을 그린다.
+
+```cpp
+for (int i = 0; i < 256; ++i)
+{
+    int height = cvRound(
+        hist.at<float>(i, 0)
+        / histMax
+        * 100
+    );
+
+    line(
+        imgHist,
+        Point(i, 100),
+        Point(i, 100 - height),
+        Color::Black
+    );
+}
+```
+
+OpenCV 영상 좌표는 아래로 갈수록 y가 커진다.<br>
+그래서 histogram 막대를 위쪽으로 그리려면 `100 - height`로 계산한다.
+
+주의할 점:
+- 원본 코드의 괄호 위치로는 `cvRound()`가 빈도값에 먼저 적용됨
+- 위처럼 비율 계산 전체를 반올림하면 계산 의도가 더 분명함
+- `histMax`가 0인 경우에는 나눗셈을 하지 않도록 확인 필요
+
+정리:
+- histogram의 x축 -> 밝기값
+- histogram의 y축 -> 해당 밝기값의 pixel 개수
+- 밝기와 명암비를 바꾼 뒤 histogram 모양도 같이 비교할 수 있음
+
+## 영상의 비트 연산
+
+`26_arithmetic.cpp`에서는 같은 크기의 두 grayscale 영상에 비트 연산을 적용했다.
+
+```cpp
+Mat img = imread(
+    folderPath + "lenna256.bmp",
+    IMREAD_GRAYSCALE
+);
+
+Mat img2 = imread(
+    folderPath + "square.bmp",
+    IMREAD_GRAYSCALE
+);
+```
+
+```cpp
+bitwise_and(img, img2, dst1);
+bitwise_or(img, img2, dst2);
+bitwise_xor(img, img2, dst3);
+bitwise_not(img, dst4);
+```
+
+- `bitwise_and()` -> 두 pixel의 bit가 모두 1인 부분
+- `bitwise_or()` -> 하나라도 1인 부분
+- `bitwise_xor()` -> 두 bit가 서로 다른 부분
+- `bitwise_not()` -> 각 bit를 반전
+
+이진 mask 영상에서는 선택 영역을 합치거나 빼는 동작으로 이해하기 쉽다.<br>
+일반 grayscale 영상에서는 각 pixel의 8bit 값에 그대로 연산된다.
+
+## 영상의 산술 연산
+
+```cpp
+add(img, img2, dst5);
+addWeighted(img, 0.9, img2, 0.1, 0, dst6);
+subtract(img, img2, dst7);
+absdiff(img, img2, dst8);
+```
+
+`addWeighted()` 계산:
+
+```text
+dst = img * 0.9 + img2 * 0.1 + 0
+```
+
+두 영상을 서로 다른 비율로 섞을 수 있다.
+
+- `add()` -> 두 영상의 pixel 값을 더함
+- `subtract()` -> 첫 번째 영상에서 두 번째 영상을 뺌
+- `absdiff()` -> 두 영상 pixel 차이의 절댓값
+
+주의할 점:
+- 입력 영상의 크기와 channel 수가 같아야 함
+- 일반적인 8bit 영상의 `add()`, `subtract()`는 범위를 벗어나면 포화됨
+- `subtract()`는 음수가 0으로 포화되지만 `absdiff()`는 방향 없이 차이의 크기를 보여줌
+
+여러 영상을 `vector<pair<string, Mat>>`로 묶어서 반복 출력했다.
+
+```cpp
+vector<pair<string, Mat>> images = {
+    {"lenna", img},
+    {"square", img2},
+    {"and", dst1},
+    {"or", dst2},
+    {"xor", dst3},
+    {"not", dst4},
+    {"add", dst5},
+    {"addWeighted", dst6},
+    {"subtract", dst7},
+    {"absdiff", dst8},
+};
+
+for (auto [name, image] : images)
+{
+    imshow(name, image);
+}
+```
+
+`auto [name, image]`는 C++17의 structured binding이다.<br>
+`pair`의 첫 번째 값과 두 번째 값을 이름으로 나누어 받을 수 있다.
+
+## 공간 필터와 kernel
+
+공간 필터링은 현재 pixel과 주변 pixel을 함께 사용해서 새 값을 계산한다.
+
+```text
+입력 영상의 주변 영역
+        *
+      kernel
+        =
+출력 영상의 한 pixel
+```
+
+kernel은 어떤 주변 값을 어느 정도 사용할지 정하는 작은 행렬이다.
+
+`filter2D()` 기본 형태:
+
+```cpp
+filter2D(
+    src,
+    dst,
+    ddepth,
+    kernel,
+    anchor,
+    delta,
+    borderType
+);
+```
+
+- `ddepth = -1` -> 입력 영상과 같은 depth로 출력
+- `anchor = Point(-1, -1)` -> kernel 중심을 anchor로 사용
+- `delta = 0` -> 계산 결과에 추가할 값 없음
+- `BORDER_REPLICATE` -> 가장자리 pixel을 복제해서 바깥 영역 처리
+
+## 엠보싱 필터
+
+엠보싱은 밝기 변화가 있는 경계를 이용해서 영상이 돌출된 것처럼 보이게 한다.
+
+3 x 3 kernel 예:
+
+```cpp
+float data[] = {
+    -1, -1, 0,
+    -1,  0, 1,
+     0,  1, 1
+};
+
+Mat emboss(3, 3, CV_32FC1, data);
+filter2D(
+    img,
+    img,
+    -1,
+    emboss,
+    Point(-1, -1),
+    128,
+    BORDER_REPLICATE
+);
+```
+
+`delta`에 128을 더하면 음수 방향의 경계도 중간 회색을 기준으로 표현하기 쉽다.
+
+현재 파일에는 아래 부분을 확인해야 한다.
+
+```text
+opencv/part3/27_embossing,cpp
+```
+
+- 확장자가 `.cpp`가 아니라 `,cpp`라서 CMake의 `"*.cpp"` 검색에 포함되지 않음
+- 현재 kernel의 `-1.-1`은 쉼표가 빠져 `-2` 계산식 하나가 됨
+- 배열 값도 8개만 명시되어 마지막 한 칸은 0으로 초기화됨
+
+정리:
+- 파일명을 `27_embossing.cpp`로 바꿔야 자동 build 대상이 됨
+- kernel은 3 x 3에 맞게 9개 값을 구분해서 작성해야 함
+- 엠보싱 결과가 너무 어두우면 `delta` 값도 확인
+
+## 평균값 blur
+
+평균값 filter는 주변 pixel의 평균을 사용해서 영상을 부드럽게 만든다.
+
+```cpp
+float data[] = {
+    1, 1, 1,
+    1, 1, 1,
+    1, 1, 1
+};
+
+Mat kernel(3, 3, CV_32FC1, data);
+kernel = kernel / 9.0;
+
+filter2D(
+    img,
+    img,
+    -1,
+    kernel,
+    Point(-1, -1),
+    0,
+    BORDER_REPLICATE
+);
+```
+
+3 x 3의 9개 값을 모두 더한 뒤 9로 나누는 것과 같다.
+
+OpenCV의 `blur()`를 사용하면 같은 형태를 더 간단하게 작성할 수 있다.
+
+```cpp
+blur(
+    frame,
+    frame,
+    Size(pos * 2 + 1, pos * 2 + 1)
+);
+```
+
+kernel 크기를 홀수로 만드는 이유는 중심 pixel을 정하기 쉽기 때문이다.
+
+```text
+pos = 1 -> 3 x 3
+pos = 2 -> 5 x 5
+pos = 3 -> 7 x 7
+```
+
+## Gaussian blur와 trackbar
+
+현재 실습에서는 카메라 frame에 Gaussian blur를 적용했다.
+
+```cpp
+int pos = 1;
+namedWindow("frame");
+createTrackbar("blur", "frame", &pos, 30);
+
+GaussianBlur(
+    frame,
+    frame,
+    Size(0, 0),
+    double(pos)
+);
+```
+
+`Size(0, 0)`을 주면 sigma 값을 기준으로 kernel 크기를 OpenCV가 계산한다.
+
+- `pos`가 커짐
+- sigma가 커짐
+- 더 넓은 주변 pixel이 섞임
+- 영상이 더 흐려짐
+
+주의할 점:
+- trackbar를 0으로 옮기면 `sigmaX = 0`이고 kernel 크기도 비어 있어 assertion error가 날 수 있음
+- 최소 sigma가 1 이상이 되도록 보정하는 것이 안전함
+
+```cpp
+double sigma = max(pos, 1);
+GaussianBlur(
+    frame,
+    frame,
+    Size(0, 0),
+    sigma
+);
+```
+
+평균값 blur는 주변 pixel을 같은 비중으로 사용하고, Gaussian blur는 중심에 가까운 pixel에 더 큰 가중치를 준다.
+
+## unsharp mask를 이용한 sharpening
+
+`29_sharpening.cpp`에서는 원본 영상과 blur 영상을 이용해 선명도를 높였다.
+
+```cpp
+GaussianBlur(
+    frame,
+    blurM,
+    Size(0, 0),
+    double(pos)
+);
+
+dst =
+    (1 + (float)pos * 0.1) * frame
+    - (float)pos * 0.1 * blurM;
+```
+
+수식:
+
+```text
+dst = (1 + alpha) * src - alpha * blurred
+```
+
+다시 정리하면 아래와 비슷하다.
+
+```text
+detail = src - blurred
+dst = src + alpha * detail
+```
+
+blur 영상과 원본의 차이를 detail로 보고 원본에 더한다.
+
+확인한 점:
+- `alpha`가 커질수록 경계가 더 강조됨
+- 너무 크게 적용하면 noise도 같이 강조될 수 있음
+- 밝은 경계나 어두운 경계 주변에 부자연스러운 halo가 생길 수 있음
+
+현재 코드는 `pos`를 Gaussian sigma와 sharpening 강도에 동시에 사용한다.<br>
+두 값의 역할이 다르므로 나중에는 trackbar를 따로 만들 수도 있다.
+
+## Gaussian noise 만들기
+
+`30_Bilateral.cpp`에서는 원본 grayscale 영상에 정규분포 noise를 추가했다.
+
+```cpp
+Mat noise(img.size(), CV_32SC1);
+randn(noise, 0, 15);
+add(img, noise, img, Mat(), CV_8U);
+```
+
+- `randn()` -> 정규분포 난수 생성
+- 평균 0
+- 표준편차 15
+- noise는 음수와 양수를 모두 가지므로 `CV_32SC1` 사용
+- 최종 출력 type은 `CV_8U`
+
+`add()`가 결과를 `CV_8U` 범위인 `0 ~ 255`로 포화시킨다.
+
+원본은 먼저 깊은 복사해두었다.
+
+```cpp
+images.push_back(img.clone());
+```
+
+이후 `img`에 noise를 직접 더해도 vector에 저장한 원본 영상은 변하지 않는다.
+
+## Gaussian filter와 bilateral filter 비교
+
+```cpp
+GaussianBlur(
+    img,
+    images[2],
+    Size(),
+    5
+);
+
+bilateralFilter(
+    img,
+    images[3],
+    -1,
+    10,
+    5
+);
+```
+
+Gaussian filter:
+- noise를 줄이고 영상을 부드럽게 만듦
+- 경계도 같이 흐려질 수 있음
+
+bilateral filter:
+- 공간적으로 가까운 pixel을 확인
+- 밝기값이 비슷한 pixel에 더 큰 가중치를 줌
+- 경계를 비교적 유지하면서 noise를 줄일 수 있음
+
+`bilateralFilter()` argument:
+
+```text
+d          = -1
+sigmaColor = 10
+sigmaSpace = 5
+```
+
+- `d = -1` -> `sigmaSpace`를 기준으로 filter 크기 계산
+- `sigmaColor` -> 밝기값 차이를 어느 정도까지 비슷하다고 볼지 결정
+- `sigmaSpace` -> 공간적으로 어느 정도 거리까지 볼지 결정
+
+주의:
+- bilateral filter는 Gaussian blur보다 계산량이 큰 편
+- `sigmaColor`가 너무 작으면 noise 제거 효과가 약할 수 있음
+- `sigmaColor`가 커지면 밝기 차이가 큰 pixel도 더 많이 섞일 수 있음
+
+## 어파인 변환
+
+어파인 변환은 직선의 성질을 유지하면서 영상을 이동, 확대/축소, 회전, 전단할 수 있는 변환이다.
+
+2차원 어파인 변환 행렬은 2 x 3 형태로 사용한다.
+
+```text
+[ a  b  tx ]
+[ c  d  ty ]
+```
+
+좌표 계산:
+
+```text
+x' = a*x + b*y + tx
+y' = c*x + d*y + ty
+```
+
+OpenCV에서는 `warpAffine()`으로 변환을 적용한다.
+
+```cpp
+warpAffine(
+    src,
+    dst,
+    M,
+    outputSize
+);
+```
+
+## 이동 변환
+
+```cpp
+Mat M = Mat_<double>(
+    {2, 3},
+    {
+        1, 0, 150,
+        0, 1, 100
+    }
+);
+
+warpAffine(
+    img,
+    images[1],
+    M,
+    img.size() + Size(150, 100)
+);
+```
+
+변환 행렬:
+
+```text
+[ 1  0  150 ]
+[ 0  1  100 ]
+```
+
+- x 방향으로 150 pixel 이동
+- y 방향으로 100 pixel 이동
+- 출력 크기도 늘려서 이동한 영상이 잘리지 않게 함
+
+주의:
+- 출력 영상 크기를 원본과 같게 두면 오른쪽과 아래쪽으로 이동한 부분이 잘릴 수 있음
+
+## 전단 변환
+
+```cpp
+double mx = 0.3;
+double my = 0.2;
+
+M = Mat_<double>(
+    {2, 3},
+    {
+        1,  mx, 0,
+        my, 1,  0
+    }
+);
+
+warpAffine(
+    img,
+    images[2],
+    M,
+    Size()
+);
+```
+
+전단 변환은 한 축의 좌표에 다른 축의 값을 섞어서 영상을 기울인다.
+
+```text
+x' = x + mx*y
+y' = my*x + y
+```
+
+주의할 점:
+- 현재 OpenCV 4.5.4 환경에서 빈 `Size()`를 전달하면 출력 크기가 원본 크기로 결정됨
+- 전단된 영상이 원본 크기 밖으로 나가면 해당 부분은 잘릴 수 있음
+- 전체 결과를 보려면 변환 후 필요한 출력 크기를 직접 계산해서 전달해야 함
+
+```cpp
+warpAffine(
+    img,
+    images[2],
+    M,
+    img.size()
+);
+```
+
+## 세 점으로 어파인 행렬 구하기
+
+어파인 변환은 서로 일직선 위에 있지 않은 세 점의 변환 관계로 행렬을 구할 수 있다.
+
+```cpp
+Point2f srcPts[3];
+Point2f dstPts[3];
+
+srcPts[0] = Point2f(0, 0);
+srcPts[1] = Point2f(1, 0);
+srcPts[2] = Point2f(1, 1);
+
+dstPts[0] = Point2f(0, 0);
+dstPts[1] = Point2f(2, 1);
+dstPts[2] = Point2f(1.5, 1.3);
+
+M = getAffineTransform(srcPts, dstPts);
+```
+
+```cpp
+warpAffine(
+    img,
+    images[3],
+    M,
+    img.size() + Size(500, 500)
+);
+```
+
+`getAffineTransform()`이 세 source 좌표와 세 destination 좌표의 관계를 만족하는 2 x 3 행렬을 반환한다.
+
+현재 좌표는 0과 1을 사용하는 단위 좌표 형태이다.<br>
+영상의 실제 모서리를 기준으로 변형하려면 `img.cols`, `img.rows`를 이용해 점을 정할 수 있다.
+
+```cpp
+Point2f srcPts[3] = {
+    Point2f(0, 0),
+    Point2f(img.cols - 1.f, 0),
+    Point2f(0, img.rows - 1.f)
+};
+```
+
+정리:
+- `warpAffine()` -> 2 x 3 변환 행렬을 영상에 적용
+- 이동값은 행렬의 마지막 열에 들어감
+- 전단은 x와 y 좌표를 서로 섞음
+- 세 점의 이동 관계로 어파인 행렬을 계산할 수 있음
+- 변환 후 영상이 잘리지 않도록 출력 크기를 같이 확인해야 함
