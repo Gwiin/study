@@ -3852,3 +3852,1028 @@ Point2f srcPts[3] = {
 - 전단은 x와 y 좌표를 서로 섞음
 - 세 점의 이동 관계로 어파인 행렬을 계산할 수 있음
 - 변환 후 영상이 잘리지 않도록 출력 크기를 같이 확인해야 함
+
+---
+
+## 원근 변환
+
+원근 변환은 가까운 부분은 크게, 먼 부분은 작게 보이는 형태의 변환이다.<br>
+어파인 변환보다 자유도가 높고 사각형을 사다리꼴처럼 바꿀 수 있다.
+
+```cpp
+Point2f srcPts[4];
+Point2f dstPts[4];
+
+Mat M = getPerspectiveTransform(srcPts, dstPts);
+warpPerspective(img, dst, M, img.size());
+```
+
+- `getPerspectiveTransform()` -> 네 점의 대응 관계로 3 x 3 변환 행렬 계산
+- `warpPerspective()` -> 원근 변환 행렬을 실제 영상에 적용
+- source 점과 destination 점은 서로 같은 순서로 지정해야 함
+
+보통 네 모서리는 아래 순서처럼 맞춘다.
+
+```cpp
+Point2f srcPts[4] = {
+    Point2f(0, 0),
+    Point2f(img.cols - 1.f, 0),
+    Point2f(img.cols - 1.f, img.rows - 1.f),
+    Point2f(0, img.rows - 1.f)
+};
+```
+
+```text
+왼쪽 위 -> 오른쪽 위 -> 오른쪽 아래 -> 왼쪽 아래
+```
+
+`32_perspective.cpp`의 source 점에는 아래처럼 같은 점이 두 번 들어가 있다.
+
+```cpp
+srcPts[2] = Point2f(1, 1);
+srcPts[3] = Point2f(1, 1);
+```
+
+주의할 점:
+- 서로 다른 네 점이 필요함
+- 같은 점이 중복되면 정상적인 사각형 영역을 만들 수 없음
+- 실제 영상 전체를 변환하려면 `0`, `1` 같은 단위 좌표보다 영상의 width, height를 사용하는 것이 이해하기 쉬움
+
+정리:
+- 어파인 변환은 점 3개와 2 x 3 행렬 사용
+- 원근 변환은 점 4개와 3 x 3 행렬 사용
+- 원근 변환에서는 평행선이 변환 후 평행하지 않을 수도 있음
+
+## remap을 이용한 비선형 좌표 변환
+
+`warpPerspective()`는 하나의 원근 행렬로 전체 영상을 변환한다.<br>
+소용돌이처럼 위치마다 다른 변형을 주려면 `remap()`을 사용할 수 있다.
+
+```cpp
+Mat mapX;
+Mat mapY;
+
+mapX.create(size, CV_32FC1);
+mapY.create(size, CV_32FC1);
+```
+
+- `mapX` -> 출력 pixel이 가져올 원본의 x 좌표
+- `mapY` -> 출력 pixel이 가져올 원본의 y 좌표
+- 각 pixel마다 source 좌표를 직접 계산할 수 있음
+
+```cpp
+remap(
+    img,
+    vortex,
+    mapX,
+    mapY,
+    INTER_LINEAR,
+    BORDER_CONSTANT,
+    Scalar::all(0)
+);
+```
+
+현재 실습에서는 중심으로부터의 거리와 각도를 계산했다.
+
+```cpp
+const float dx = x - center.x;
+const float dy = y - center.y;
+const float radius = hypot(dx, dy);
+const float sourceAngle =
+    atan2(dy, dx) - twist * vortexWeight;
+```
+
+- `hypot(dx, dy)` -> 중심에서 현재 pixel까지 거리
+- `atan2(dy, dx)` -> 중심 기준 현재 pixel의 각도
+- 중심에 가까울수록 `vortexWeight`를 크게 만들어 더 많이 비틂
+
+반지름에 `sin()` 값을 섞어서 일정하지 않은 왜곡도 만들었다.
+
+```cpp
+const float ripple =
+    1.f +
+    0.18f *
+    sin(normalizedRadius * 12.f - progress * 18.f) *
+    vortexWeight *
+    progress;
+```
+
+변환 좌표:
+
+```cpp
+mapX.at<float>(y, x) =
+    center.x + sourceRadius * cos(sourceAngle);
+
+mapY.at<float>(y, x) =
+    center.y + sourceRadius * sin(sourceAngle);
+```
+
+확인한 점:
+- 단순 회전과 축소만 하면 원본 모양이 그대로 돌아가는 느낌이 남음
+- `remap()`으로 pixel 위치마다 회전량과 반지름을 다르게 주면 비선형 왜곡 가능
+- 마지막에 `warpPerspective()`를 추가해서 네 모서리도 비대칭으로 변형할 수 있음
+
+주의:
+- `remap()` 좌표가 원본 범위를 벗어나면 border 설정이 사용됨
+- 현재 코드는 모든 pixel 좌표를 매 frame 계산하므로 영상이 크면 계산량이 커질 수 있음
+- `INTER_LINEAR`는 주변 pixel을 보간하므로 반복 변환 시 영상이 흐려질 수 있음
+
+## Sobel 미분
+
+영상의 edge는 밝기값이 빠르게 변하는 부분이다.<br>
+Sobel filter로 x 방향과 y 방향 밝기 변화량을 구할 수 있다.
+
+```cpp
+Mat dx;
+Mat dy;
+
+Sobel(img, dx, CV_32FC1, 1, 0);
+Sobel(img, dy, CV_32FC1, 0, 1);
+```
+
+argument의 미분 차수:
+
+```text
+dx: xOrder = 1, yOrder = 0
+dy: xOrder = 0, yOrder = 1
+```
+
+- `dx` -> x축 방향으로 밝기가 변하는 정도
+- `dy` -> y축 방향으로 밝기가 변하는 정도
+- 미분 결과는 음수가 나올 수 있어서 `CV_32FC1`로 받음
+
+gradient 크기와 방향도 계산할 수 있다.
+
+```cpp
+Mat magnitudeM;
+Mat phaseM;
+
+magnitude(dx, dy, magnitudeM);
+phase(dx, dy, phaseM, true);
+```
+
+수식:
+
+```text
+magnitude = sqrt(dx^2 + dy^2)
+phase     = atan2(dy, dx)
+```
+
+`phase()`의 마지막 argument가 `true`이면 각도를 degree로 계산한다.
+
+## Sobel 결과를 8bit 영상으로 표시
+
+```cpp
+dx.convertTo(dx, CV_8UC1);
+dy.convertTo(dy, CV_8UC1);
+magnitudeM.convertTo(magnitudeM, CV_8UC1);
+phaseM.convertTo(phaseM, CV_8UC1);
+```
+
+주의할 점:
+- `dx`, `dy`에는 음수가 있을 수 있음
+- `CV_8UC1`로 바로 변환하면 음수는 0, 255보다 큰 값은 255로 포화됨
+- 방향값은 degree 기준 `0 ~ 360`이므로 255보다 큰 값이 잘림
+- 값을 관찰하려면 절댓값 변환이나 정규화를 고려해야 함
+
+예:
+
+```cpp
+Mat absDx;
+convertScaleAbs(dx, absDx);
+
+Mat phaseView;
+normalize(
+    phaseM,
+    phaseView,
+    0,
+    255,
+    NORM_MINMAX,
+    CV_8UC1
+);
+```
+
+edge mask:
+
+```cpp
+Mat edge = magnitudeM > 150;
+```
+
+크기가 150보다 큰 pixel은 255, 아니면 0인 이진 영상이 된다.
+
+정리:
+- Sobel은 x, y 방향 미분값을 따로 구할 수 있음
+- `magnitude()`는 edge 강도
+- `phase()`는 edge 방향
+- 표시용 8bit 변환 전에 값의 범위를 확인해야 함
+
+## Canny edge 검출
+
+Canny는 하나의 threshold만 사용하는 단순 edge 이진화보다 연결된 edge를 안정적으로 찾는 데 많이 사용한다.
+
+```cpp
+Canny(frame, edge, lowThreshold, highThreshold);
+```
+
+- `highThreshold`보다 큰 edge -> 강한 edge
+- `lowThreshold`보다 작은 edge -> 제거
+- 두 값 사이 -> 강한 edge와 연결되어 있으면 남을 수 있음
+
+카메라 영상에서 trackbar로 값을 조절했다.
+
+```cpp
+int lowThreshold = 50;
+int highThreshold = 150;
+
+createTrackbar(
+    "low threshold",
+    "frame",
+    &lowThreshold,
+    255
+);
+
+createTrackbar(
+    "high threshold",
+    "frame",
+    &highThreshold,
+    255
+);
+```
+
+주의할 점:
+- threshold 변수는 사용 전에 초기화하는 것이 좋음
+- 보통 `lowThreshold <= highThreshold`가 되도록 관리
+- noise가 많으면 Canny 전에 Gaussian blur를 적용할 수 있음
+- 카메라를 열지 못했으면 메시지만 출력하지 말고 `return 1`로 종료하는 것이 안전함
+
+정리:
+- threshold가 낮으면 작은 변화와 noise까지 edge로 나올 수 있음
+- threshold가 높으면 강한 edge만 남음
+- trackbar로 실제 영상에 맞는 범위를 찾아볼 수 있음
+
+## Hough line transform
+
+Hough 변환은 edge 영상에서 직선을 찾는 방법이다.
+
+```cpp
+vector<Vec2f> lines;
+
+HoughLines(
+    edge,
+    lines,
+    1,
+    CV_PI / 180,
+    houghThreshold
+);
+```
+
+argument:
+
+```text
+rho resolution   = 1 pixel
+theta resolution = 1 degree
+threshold        = 직선으로 판단할 최소 누적값
+```
+
+`HoughLines()` 결과는 `(rho, theta)` 형태이다.
+
+```cpp
+float rho = lines[i][0];
+float theta = lines[i][1];
+```
+
+- `rho` -> 원점에서 직선까지의 수직 거리
+- `theta` -> 직선의 법선 방향 각도
+
+화면에 그리기 위해 충분히 긴 두 점으로 변환했다.
+
+```cpp
+float cosT = cos(theta);
+float sinT = sin(theta);
+float x0 = rho * cosT;
+float y0 = rho * sinT;
+float alpha = 1000;
+
+Point pt1(
+    cvRound(x0 - alpha * sinT),
+    cvRound(y0 + alpha * cosT)
+);
+
+Point pt2(
+    cvRound(x0 + alpha * sinT),
+    cvRound(y0 - alpha * cosT)
+);
+
+line(frame, pt1, pt2, Color::Red, 2, LINE_AA);
+```
+
+주의:
+- 입력은 보통 Canny 결과 같은 8bit 이진 edge 영상
+- Hough threshold가 너무 낮으면 많은 직선이 검출됨
+- threshold는 0보다 큰 값으로 초기화하는 것이 안전함
+
+## 확률적 Hough line transform
+
+`HoughLinesP()`는 무한 직선의 `(rho, theta)`가 아니라 실제 선분의 양 끝점을 반환한다.
+
+```cpp
+vector<Vec4i> lines;
+
+HoughLinesP(
+    edge,
+    lines,
+    1,
+    CV_PI / 180,
+    houghThreshold,
+    10,
+    20
+);
+```
+
+결과:
+
+```text
+(x1, y1, x2, y2)
+```
+
+- `minLineLength = 10` -> 이 길이보다 짧은 선분은 제외
+- `maxLineGap = 20` -> 떨어진 edge 사이가 이 값 이하면 한 선분으로 연결 가능
+
+그리기:
+
+```cpp
+for (const Vec4i &lineData : lines)
+{
+    line(
+        frame,
+        Point(lineData[0], lineData[1]),
+        Point(lineData[2], lineData[3]),
+        Color::Red,
+        2,
+        LINE_AA
+    );
+}
+```
+
+현재 `38_houglineP.cpp`에는 아래처럼 항상 20개를 접근하는 부분이 있다.
+
+```cpp
+for (int i = 0; i < 20; i++)
+{
+    line(
+        frame,
+        Point(lines[i][0], lines[i][1]),
+        Point(lines[i][2], lines[i][3]),
+        Color::Red
+    );
+}
+```
+
+주의할 점:
+- 검출된 선분이 20개보다 적으면 vector 범위를 벗어나게 됨
+- `lines.size()`만큼 반복하거나 `min(lines.size(), 20)`을 사용해야 함
+- `HoughLinesP()` 결과 type은 좌표가 정수이므로 보통 `Vec4i` 사용
+
+정리:
+- `HoughLines()` -> `(rho, theta)` 형태의 전체 직선
+- `HoughLinesP()` -> `(x1, y1, x2, y2)` 형태의 선분
+
+## BGR channel 분리
+
+컬러 영상은 OpenCV에서 기본적으로 BGR 세 channel로 구성된다.
+
+```cpp
+vector<Mat> bgrPlanes;
+split(img, bgrPlanes);
+```
+
+결과:
+
+```text
+bgrPlanes[0] -> Blue channel
+bgrPlanes[1] -> Green channel
+bgrPlanes[2] -> Red channel
+```
+
+`split()` 결과의 각 channel은 `CV_8UC1` grayscale 형태이다.<br>
+밝게 보이는 부분일수록 해당 색 성분이 큰 것이다.
+
+한 색만 컬러로 표시하려면 나머지 channel을 0으로 만든 뒤 합칠 수 있다.
+
+```cpp
+Mat empty(
+    img.size(),
+    CV_8UC1,
+    Scalar(0)
+);
+
+merge(
+    vector<Mat>{bgrPlanes[0], empty, empty},
+    blueImage
+);
+
+merge(
+    vector<Mat>{empty, bgrPlanes[1], empty},
+    greenImage
+);
+
+merge(
+    vector<Mat>{empty, empty, bgrPlanes[2]},
+    redImage
+);
+```
+
+정리:
+- `split()` -> 여러 channel을 각각의 1 channel Mat으로 분리
+- `merge()` -> 여러 1 channel Mat을 하나의 다채널 Mat으로 합침
+- 순서는 RGB가 아니라 BGR
+
+## HSV 색 공간
+
+BGR은 Blue, Green, Red의 세기값으로 색을 표현한다.<br>
+색상 범위를 찾을 때는 HSV가 더 편한 경우가 많다.
+
+```cpp
+cvtColor(img, hsv, COLOR_BGR2HSV);
+```
+
+OpenCV의 8bit HSV 범위:
+
+```text
+H: 0 ~ 179
+S: 0 ~ 255
+V: 0 ~ 255
+```
+
+- `H` -> Hue, 색상 종류
+- `S` -> Saturation, 색의 선명함
+- `V` -> Value, 밝기
+
+주의:
+- 일반적인 Hue 설명은 `0 ~ 360 degree`이지만 OpenCV 8bit HSV에서는 `0 ~ 179`
+- BGR 영상에 HSV 범위를 바로 적용하면 안 됨
+- 먼저 `cvtColor()`로 변환해야 함
+
+## inRange로 색상 mask 만들기
+
+```cpp
+Scalar lowerBound(lowerHue, 0, 0);
+Scalar upperBound(upperHue, 255, 255);
+
+inRange(
+    hsv,
+    lowerBound,
+    upperBound,
+    mask
+);
+```
+
+각 channel 값이 lower와 upper 범위 안에 있으면 mask pixel이 255가 된다.
+
+```text
+범위 안   -> 255, 흰색
+범위 밖   -> 0, 검정
+```
+
+Hue trackbar callback:
+
+```cpp
+void onHueChanged(int, void *data)
+{
+    MyData *myData =
+        static_cast<MyData *>(data);
+
+    inRange(
+        myData->hsv,
+        Scalar(myData->lowerHue, 0, 0),
+        Scalar(myData->upperHue, 255, 255),
+        myData->mask
+    );
+}
+```
+
+callback의 `void *data`를 이용하면 여러 값을 묶은 구조체 주소를 전달할 수 있다.
+
+주의할 점:
+- lower 값이 upper 값보다 크면 원하는 범위가 나오지 않음
+- Hue만 사용하면 흰색이나 회색처럼 채도가 낮은 pixel까지 포함될 수 있음
+- 실제 물체 검출에서는 S와 V의 최솟값도 같이 조절하는 것이 좋음
+
+## 카메라에서 노란색 물체 추적
+
+카메라 frame을 HSV로 변환하고 노란색의 초기 범위를 지정했다.
+
+```cpp
+int lowerHue = 20;
+int upperHue = 40;
+int lowerSaturation = 80;
+int upperSaturation = 255;
+int lowerValue = 80;
+int upperValue = 255;
+```
+
+조명과 카메라에 따라 같은 노란색도 HSV 값이 달라질 수 있다.<br>
+그래서 H, S, V 범위를 모두 trackbar로 조절한다.
+
+```cpp
+inRange(
+    hsv,
+    Scalar(lowH, lowS, lowV),
+    Scalar(highH, highS, highV),
+    mask
+);
+```
+
+trackbar의 lower와 upper가 뒤집혀도 동작하도록 정렬했다.
+
+```cpp
+const int lowH = min(lowerHue, upperHue);
+const int highH = max(lowerHue, upperHue);
+```
+
+S와 V도 같은 방식으로 정리한다.
+
+## morphology를 이용한 mask 정리
+
+색상 mask에는 작은 흰색 noise나 물체 내부의 검은 구멍이 생길 수 있다.
+
+```cpp
+const Mat kernel = getStructuringElement(
+    MORPH_ELLIPSE,
+    Size(5, 5)
+);
+
+morphologyEx(mask, mask, MORPH_OPEN, kernel);
+morphologyEx(mask, mask, MORPH_CLOSE, kernel);
+```
+
+- opening -> 작은 흰색 noise 제거
+- closing -> 흰색 물체 내부의 작은 검은 구멍 채우기
+
+## contour로 가장 큰 물체 찾기
+
+```cpp
+vector<vector<Point>> contours;
+
+findContours(
+    mask.clone(),
+    contours,
+    RETR_EXTERNAL,
+    CHAIN_APPROX_SIMPLE
+);
+```
+
+- `RETR_EXTERNAL` -> 가장 바깥쪽 contour만 찾음
+- `CHAIN_APPROX_SIMPLE` -> 직선 구간의 중간 점을 줄여서 저장
+
+가장 큰 contour를 찾는다.
+
+```cpp
+double largestArea = 0.0;
+Rect targetBox;
+
+for (const vector<Point> &contour : contours)
+{
+    const double area = contourArea(contour);
+
+    if (area > largestArea)
+    {
+        largestArea = area;
+        targetBox = boundingRect(contour);
+    }
+}
+```
+
+- `contourArea()` -> contour 내부의 면적
+- `boundingRect()` -> contour를 감싸는 축에 평행한 최소 사각형
+
+일정 크기 이상일 때만 물체로 판단한다.
+
+```cpp
+if (largestArea >= minimumArea)
+{
+    rectangle(frame, targetBox, Color::Red, 3);
+}
+```
+
+`countNonZero(mask)`로 전체 mask의 흰색 pixel 수도 확인했다.
+
+```cpp
+int maskPixelCount = countNonZero(mask);
+```
+
+주의:
+- `maskPixelCount`는 mask 전체 흰색 pixel 수
+- `contourArea()`는 특정 contour가 둘러싼 면적
+- 두 값은 같은 의미가 아니며 모양이나 구멍에 따라 차이가 날 수 있음
+- 물체가 여러 개면 현재 코드는 가장 큰 물체 하나만 추적
+
+정리:
+- HSV 범위로 원하는 색의 이진 mask 생성
+- morphology로 mask의 작은 noise 정리
+- contour 면적으로 작은 검출 결과 제거
+- bounding box와 중심점을 이용해 물체 위치 표시
+
+## 전역 threshold
+
+threshold는 grayscale 영상을 0과 255의 이진 영상으로 바꿀 때 사용한다.
+
+```cpp
+threshold(
+    img,
+    binary,
+    thresholdValue,
+    255,
+    THRESH_BINARY
+);
+```
+
+```text
+pixel > thresholdValue -> 255
+pixel <= thresholdValue -> 0
+```
+
+영상 전체에 같은 threshold 값을 사용하므로 조명이 일정한 영상에 적용하기 쉽다.
+
+## Otsu 이진화
+
+```cpp
+threshold(
+    img,
+    binary,
+    0,
+    255,
+    THRESH_BINARY | THRESH_OTSU
+);
+```
+
+Otsu 방법은 histogram을 이용해 두 그룹을 나누는 threshold 값을 자동으로 찾는다.
+
+확인한 점:
+- Otsu를 사용할 때 입력은 8bit 1 channel 영상
+- 전달한 threshold 값 0보다 자동으로 계산된 값이 사용됨
+- `threshold()`의 return 값으로 계산된 threshold를 받을 수 있음
+
+```cpp
+double otsuValue = threshold(
+    img,
+    binary,
+    0,
+    255,
+    THRESH_BINARY | THRESH_OTSU
+);
+```
+
+현재 코드의 `THRESH_OTSU`만 전달한 경우 기본 binary type 값이 0이라 동작할 수 있지만, 의도를 분명하게 하려면 `THRESH_BINARY | THRESH_OTSU`처럼 같이 쓰는 것이 읽기 좋다.
+
+## adaptive threshold
+
+조명이 위치마다 다르면 영상 전체에 하나의 threshold를 적용했을 때 일부 영역이 사라질 수 있다.
+
+```cpp
+adaptiveThreshold(
+    img,
+    adaptive,
+    255,
+    ADAPTIVE_THRESH_GAUSSIAN_C,
+    THRESH_BINARY,
+    101,
+    5
+);
+```
+
+- 주변 `101 x 101` 영역을 기준으로 threshold 계산
+- Gaussian 가중치를 사용
+- 계산한 값에서 `C = 5`를 뺌
+
+주의할 점:
+- block size는 3 이상의 홀수여야 함
+- block size가 크면 더 넓은 조명 변화를 기준으로 판단
+- 입력은 8bit 1 channel 영상
+
+정리:
+- global threshold -> 영상 전체에 기준값 하나
+- Otsu -> 전체 histogram에서 기준값 자동 계산
+- adaptive threshold -> pixel 주변 영역마다 기준값 계산
+
+## morphology 기본 연산
+
+morphology는 물체의 모양을 기준으로 이진 영상을 처리한다.<br>
+보통 흰색 부분을 foreground로 생각한다.
+
+### erosion
+
+```cpp
+erode(
+    binary,
+    eroded,
+    Mat(),
+    Point(-1, -1),
+    5
+);
+```
+
+- 흰색 영역이 줄어듦
+- 작은 흰색 noise 제거에 사용할 수 있음
+- 붙어 있는 물체를 분리하는 데 도움이 될 수 있음
+- 반복 횟수 5
+
+### dilation
+
+```cpp
+dilate(binary, dilated, Mat());
+```
+
+- 흰색 영역이 커짐
+- 끊어진 흰색 영역을 연결할 수 있음
+- 물체 내부의 작은 검은 구멍을 줄일 수 있음
+
+`Mat()`을 kernel로 전달하면 기본 3 x 3 사각형 구조 요소가 사용된다.
+
+## opening과 closing
+
+opening:
+
+```text
+erosion -> dilation
+```
+
+```cpp
+morphologyEx(
+    binary,
+    opened,
+    MORPH_OPEN,
+    Mat(),
+    Point(-1, -1),
+    5
+);
+```
+
+작은 흰색 noise를 제거할 때 사용한다.
+
+closing:
+
+```text
+dilation -> erosion
+```
+
+흰색 물체 내부의 작은 검은 구멍이나 끊어진 부분을 채울 때 사용할 수 있다.
+
+주의:
+- iteration이 너무 크면 원래 물체 모양도 많이 달라짐
+- kernel의 크기와 모양에 따라 결과가 달라짐
+- 검은색 물체를 처리하고 싶으면 이진 영상의 foreground 방향을 먼저 확인
+
+## connected component labeling
+
+labeling은 서로 연결된 흰색 영역마다 번호를 붙이는 방법이다.
+
+```cpp
+Mat labels;
+int count = connectedComponents(binary, labels);
+```
+
+- 배경 label은 0
+- foreground 객체는 1부터 시작
+- return 값에는 배경도 포함됨
+
+```text
+return = 1 -> foreground 객체 없음, 배경만 있음
+return = 4 -> 배경 1개 + 객체 3개
+```
+
+`labels`에는 각 pixel이 속한 label 번호가 저장된다.<br>
+기본 output label type은 보통 `CV_32S`이다.
+
+## labeling의 통계 정보
+
+```cpp
+Mat stats;
+Mat centroids;
+
+int count = connectedComponentsWithStats(
+    binary,
+    labels,
+    stats,
+    centroids
+);
+```
+
+`stats`의 각 row:
+
+```text
+CC_STAT_LEFT   -> x
+CC_STAT_TOP    -> y
+CC_STAT_WIDTH  -> width
+CC_STAT_HEIGHT -> height
+CC_STAT_AREA   -> pixel area
+```
+
+상수 이름으로 접근하는 것이 인덱스 숫자를 직접 쓰는 것보다 읽기 쉽다.
+
+```cpp
+int x = stats.at<int>(i, CC_STAT_LEFT);
+int y = stats.at<int>(i, CC_STAT_TOP);
+int width = stats.at<int>(i, CC_STAT_WIDTH);
+int height = stats.at<int>(i, CC_STAT_HEIGHT);
+int area = stats.at<int>(i, CC_STAT_AREA);
+```
+
+배경 0번은 제외하고 반복한다.
+
+```cpp
+for (int i = 1; i < count; ++i)
+{
+    if (area < 20)
+        continue;
+
+    rectangle(
+        output,
+        Rect(x, y, width, height),
+        Scalar(128)
+    );
+}
+```
+
+중심점:
+
+```cpp
+double centerX = centroids.at<double>(i, 0);
+double centerY = centroids.at<double>(i, 1);
+```
+
+주의할 점:
+- `stats`는 `CV_32S`이므로 `int`로 접근
+- `centroids`는 `CV_64F`이므로 `double`로 접근
+- 현재 `44_labeling.cpp`의 `centroids.ptr<int>()`는 실제 자료형과 맞지 않음
+
+올바른 형태:
+
+```cpp
+circle(
+    output,
+    Point(
+        cvRound(centroids.at<double>(i, 0)),
+        cvRound(centroids.at<double>(i, 1))
+    ),
+    5,
+    Scalar(128),
+    FILLED
+);
+```
+
+정리:
+- contour는 경계점 중심으로 물체를 분석
+- labeling은 연결된 pixel 영역마다 번호를 부여
+- 객체의 사각형, 면적, 중심점이 필요하면 `connectedComponentsWithStats()` 사용
+
+## contour와 도형 판별
+
+`45_polygon.cpp`에서는 이진 영상의 외곽선을 찾고 꼭짓점 개수로 도형을 구분했다.
+
+```cpp
+Mat gray;
+cvtColor(img, gray, COLOR_BGR2GRAY);
+
+Mat binary;
+threshold(
+    gray,
+    binary,
+    200,
+    255,
+    THRESH_BINARY_INV | THRESH_OTSU
+);
+```
+
+`THRESH_BINARY_INV`를 사용해서 어두운 도형을 흰색 foreground로 바꾼다.
+
+```cpp
+vector<vector<Point>> contours;
+
+findContours(
+    binary,
+    contours,
+    RETR_EXTERNAL,
+    CHAIN_APPROX_NONE
+);
+```
+
+- `RETR_EXTERNAL` -> 외부 contour만 찾음
+- `CHAIN_APPROX_NONE` -> contour의 모든 경계점을 저장
+
+작은 영역은 noise로 보고 제외한다.
+
+```cpp
+if (contourArea(points) < 400)
+    continue;
+```
+
+## polygon 근사
+
+contour에는 경계점이 많이 들어 있다.<br>
+`approxPolyDP()`로 비슷한 모양을 유지하면서 점 개수를 줄인다.
+
+```cpp
+vector<Point> approx;
+
+double epsilon =
+    arcLength(points, true) * 0.02;
+
+approxPolyDP(
+    points,
+    approx,
+    epsilon,
+    true
+);
+```
+
+- `arcLength()` -> contour 둘레 길이
+- `epsilon` -> 원래 contour와 근사 contour 사이의 허용 거리
+- 마지막 `true` -> 닫힌 도형
+
+꼭짓점 수:
+
+```cpp
+int vertexCount =
+    static_cast<int>(approx.size());
+```
+
+```text
+3개 -> triangle
+4개 -> rectangle 계열
+그 이상 -> 원형 여부 추가 확인
+```
+
+주의:
+- 꼭짓점이 4개라고 항상 정사각형이나 직사각형은 아님
+- 사다리꼴과 일반 사각형도 4개로 나옴
+- 직사각형 여부를 더 정확히 확인하려면 각도나 변의 길이도 비교해야 함
+
+## 원형도 계산
+
+꼭짓점이 많은 contour는 원형도를 계산해서 원인지 확인했다.
+
+```cpp
+double length = arcLength(points, true);
+double area = contourArea(points);
+double ratio =
+    4.0 * CV_PI * area /
+    (length * length);
+```
+
+```text
+원에 가까울수록 ratio가 1에 가까움
+```
+
+```cpp
+if (ratio > 0.85)
+{
+    setLabel(img, points, "CIR");
+}
+```
+
+주의:
+- contour가 울퉁불퉁하면 둘레가 길어져 원형도가 낮아질 수 있음
+- 작은 도형은 pixel 오차의 영향을 크게 받을 수 있음
+- `length`가 0인 경우 나누지 않도록 일반화할 때 확인 필요
+
+## contour를 감싸는 도형
+
+```cpp
+Rect rect = boundingRect(points);
+RotatedRect rotatedRect = minAreaRect(points);
+
+Point2f center;
+float radius;
+minEnclosingCircle(points, center, radius);
+```
+
+- `boundingRect()` -> x, y축에 평행한 사각형
+- `minAreaRect()` -> 회전 가능한 최소 면적 사각형
+- `minEnclosingCircle()` -> contour 전체를 포함하는 최소 원
+
+회전 사각형의 네 점:
+
+```cpp
+Point2f vertices[4];
+rotatedRect.points(vertices);
+
+for (int i = 0; i < 4; ++i)
+{
+    line(
+        img,
+        vertices[i],
+        vertices[(i + 1) % 4],
+        Color::Green,
+        3
+    );
+}
+```
+
+`(i + 1) % 4`를 사용해서 마지막 점과 첫 번째 점도 연결한다.
+
+정리:
+- `findContours()`로 물체의 경계점 찾기
+- `approxPolyDP()`로 꼭짓점 수 줄이기
+- 꼭짓점 수와 원형도로 도형 분류
+- bounding rectangle, rotated rectangle, enclosing circle을 같이 표시할 수 있음
