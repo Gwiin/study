@@ -4877,3 +4877,551 @@ for (int i = 0; i < 4; ++i)
 - `approxPolyDP()`로 꼭짓점 수 줄이기
 - 꼭짓점 수와 원형도로 도형 분류
 - bounding rectangle, rotated rectangle, enclosing circle을 같이 표시할 수 있음
+
+## 기준 물체로 실제 면적 추정
+
+`46_page_posit.cpp`에서는 크기를 알고 있는 노란색 포스트잇을 기준으로 흰 종이의 실제 면적을 추정했다.
+
+```cpp
+constexpr float POST_IT_WIDTH_MM = 50.0f;
+constexpr float POST_IT_HEIGHT_MM = 20.0f;
+```
+
+카메라 영상의 pixel 길이만으로는 바로 mm나 cm를 알 수 없다.<br>
+그래서 실제 크기를 알고 있는 물체를 영상 안에 같이 두고 기준으로 사용한다.
+
+처리 순서:
+
+```text
+BGR frame
+-> HSV 변환
+-> 노란색 포스트잇 mask
+-> 밝고 채도가 낮은 종이 mask
+-> contour 검출
+-> perspective transform
+-> 실제 면적 계산
+```
+
+노란색 영역과 흰 종이 영역은 HSV 범위로 분리했다.
+
+```cpp
+cvtColor(frame, hsv, COLOR_BGR2HSV);
+
+inRange(
+    hsv,
+    Scalar(yellowLowH, yellowLowS, yellowLowV),
+    Scalar(yellowHighH, 255, 255),
+    yellowMask
+);
+```
+
+흰 종이는 채도가 낮고 밝기가 높은 영역으로 찾았다.
+
+```cpp
+inRange(
+    hsv,
+    Scalar(0, 0, paperLowV),
+    Scalar(179, paperMaxS, 255),
+    paperMask
+);
+```
+
+주의:
+- 조명에 따라 HSV 값이 달라질 수 있음
+- 흰 벽이나 밝은 배경도 종이 후보가 될 수 있음
+- trackbar로 현재 환경에 맞는 범위를 확인해야 함
+
+## 사각형 contour와 꼭짓점 순서
+
+포스트잇 후보는 면적이 일정 크기 이상이고, 꼭짓점이 4개인 볼록한 contour로 찾았다.
+
+```cpp
+approxPolyDP(
+    contour,
+    polygon,
+    arcLength(contour, true) * 0.03,
+    true
+);
+
+if (
+    polygon.size() == 4 &&
+    isContourConvex(polygon)
+)
+{
+    // 포스트잇 후보
+}
+```
+
+perspective transform을 하려면 source와 destination 꼭짓점의 순서가 서로 맞아야 한다.
+
+```text
+왼쪽 위 -> 오른쪽 위 -> 오른쪽 아래 -> 왼쪽 아래
+```
+
+`46_page_posit.cpp`에서는 중심점을 기준으로 각도를 계산해 점을 정렬하고, `x + y`가 가장 작은 점부터 시작하도록 회전했다.
+
+정리:
+- 같은 사각형이라도 꼭짓점 순서가 다르면 변환 결과가 뒤틀릴 수 있음
+- `getPerspectiveTransform()`에는 대응되는 4쌍의 점이 필요
+- 기준 물체가 많이 기울어져 있어도 perspective transform으로 좌표를 보정할 수 있음
+
+## perspective transform으로 면적 계산
+
+영상 속 포스트잇 네 점을 실제 mm 좌표로 대응시킨다.
+
+```cpp
+const array<Point2f, 4> metricCorners = {
+    Point2f(0.f, 0.f),
+    Point2f(50.f, 0.f),
+    Point2f(50.f, 20.f),
+    Point2f(0.f, 20.f)
+};
+
+Mat homography = getPerspectiveTransform(
+    postItCorners.data(),
+    metricCorners.data()
+);
+```
+
+종이 contour에도 같은 변환을 적용한다.
+
+```cpp
+perspectiveTransform(
+    paperPoints,
+    metricPaperContour,
+    homography
+);
+
+double paperAreaMm2 =
+    abs(contourArea(metricPaperContour));
+
+double paperAreaCm2 =
+    paperAreaMm2 / 100.0;
+```
+
+`1 cm² = 100 mm²`이므로 mm² 값을 100으로 나누었다.
+
+주의:
+- 이 방법은 포스트잇과 종이가 같은 평면에 놓여 있다고 가정
+- 기준 물체가 휘거나 종이와 높이가 다르면 오차가 커질 수 있음
+- lens distortion을 보정하지 않았기 때문에 화면 가장자리에서는 오차가 생길 수 있음
+
+## Haar cascade 얼굴과 눈 검출
+
+`47_cascade.cpp`에서는 미리 학습된 XML classifier로 얼굴과 눈을 찾았다.
+
+```cpp
+CascadeClassifier faceClassifier(
+    folderPath + "haarcascade_frontalface_default.xml"
+);
+
+vector<Rect> faces;
+faceClassifier.detectMultiScale(src, faces);
+```
+
+검출 결과는 `Rect` 목록으로 나온다.
+
+```cpp
+for (Rect face : faces)
+{
+    rectangle(src, face, Scalar(255, 0, 255), 2);
+}
+```
+
+눈은 전체 이미지보다 얼굴 ROI 안에서 다시 찾았다.
+
+```cpp
+Mat faceROI = src(face);
+
+vector<Rect> eyes;
+eyeClassifier.detectMultiScale(faceROI, eyes);
+```
+
+ROI에서 구한 눈 좌표는 `faceROI` 기준 좌표이다.<br>
+현재 코드는 원도 얼굴 ROI 위에 바로 그리므로 별도의 좌표 이동이 필요하지 않다.
+
+`48_cascade_ex.cpp`에서는 같은 검출을 카메라 frame마다 반복했다.
+
+주의:
+- XML 경로가 틀리면 classifier가 비어 있음
+- `classifier.empty()`로 load 여부를 확인
+- 정면 얼굴용 cascade는 얼굴 각도, 조명, 가림에 따라 검출이 잘 안 될 수 있음
+- frame마다 검출하므로 영상 크기와 parameter에 따라 속도가 달라짐
+
+## HOG 보행자 검출
+
+`49_hong.cpp`에서는 HOG descriptor와 기본 SVM detector로 사람을 검출했다.
+
+```cpp
+HOGDescriptor hog;
+hog.setSVMDetector(
+    HOGDescriptor::getDefaultPeopleDetector()
+);
+
+vector<Rect> detected;
+hog.detectMultiScale(frame, detected);
+```
+
+HOG는 주변 pixel의 gradient 방향 분포를 특징으로 사용한다.<br>
+현재 실습에서는 `vtest.avi`의 각 frame에서 사람 영역을 사각형으로 표시했다.
+
+정리:
+- HOG -> gradient 방향을 이용한 특징
+- `getDefaultPeopleDetector()` -> OpenCV에 포함된 기본 보행자 detector
+- `detectMultiScale()` -> 여러 크기로 탐색
+
+주의:
+- 멀리 있거나 자세가 많이 다른 사람은 놓칠 수 있음
+- 배경 무늬를 사람으로 잘못 검출할 수 있음
+- 파일 이름은 `49_hong.cpp`이지만 학습한 알고리즘 이름은 `HOG`이다
+
+## ZBar로 QR code 읽기
+
+`50_qr.cpp`에서는 카메라 frame을 grayscale로 바꾼 뒤 ZBar로 QR code를 읽었다.
+
+```cpp
+cvtColor(frame, gray, COLOR_BGR2GRAY);
+
+Image zbarImage(
+    gray.cols,
+    gray.rows,
+    "Y800",
+    gray.data,
+    gray.cols * gray.rows
+);
+```
+
+`Y800`은 8bit grayscale image format으로 전달한다는 의미로 사용했다.
+
+QR code만 활성화:
+
+```cpp
+ImageScanner scanner;
+
+scanner.set_config(
+    ZBAR_NONE,
+    ZBAR_CFG_ENABLE,
+    0
+);
+scanner.set_config(
+    ZBAR_QRCODE,
+    ZBAR_CFG_ENABLE,
+    1
+);
+```
+
+검출 결과에서 종류, 문자열, 외곽 좌표를 가져올 수 있다.
+
+```cpp
+string type = symbol->get_type_name();
+string data = symbol->get_data();
+
+int x = symbol->get_location_x(i);
+int y = symbol->get_location_y(i);
+```
+
+ZBar image가 OpenCV의 `gray.data`를 직접 가리키고 있으므로 소유권을 넘기지 않도록 연결을 해제했다.
+
+```cpp
+zbarImage.set_data(nullptr, 0);
+```
+
+### ZBar linker error
+
+header만 include하고 library를 link하지 않으면 compile은 되지만 link 단계에서 실패했다.
+
+```text
+undefined reference to `zbar_image_create'
+undefined reference to `zbar_scan_image'
+collect2: error: ld returned 1 exit status
+```
+
+현재 root CMake에서는 `pkg-config`로 ZBar를 찾고 `50_qr` target에만 연결한다.
+
+```cmake
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(
+    ZBAR
+    REQUIRED
+    IMPORTED_TARGET
+    zbar
+)
+
+if(EXE_NAME STREQUAL "50_qr")
+    target_link_libraries(
+        "${EXE_NAME}"
+        PRIVATE
+        PkgConfig::ZBAR
+    )
+endif()
+```
+
+정리:
+- header를 찾는 것과 library를 link하는 것은 다른 단계
+- `undefined reference`는 link library 누락을 먼저 확인
+- 현재 환경의 ZBar package 이름은 `zbar`, linker option은 `-lzbar`
+
+## corner 검출
+
+`51_corners.cpp`에서는 Harris, FAST, `goodFeaturesToTrack()`을 비교했다.
+
+### Harris corner
+
+```cpp
+Mat harris;
+cornerHarris(src, harris, 3, 3, 0.04);
+```
+
+Harris 결과는 corner response 값이며 현재 코드는 `CV_32F` 값으로 접근한다.
+
+```cpp
+if (harris.at<float>(j, i) >
+    harris.at<float>(j - 1, i))
+{
+    // local maximum 확인
+}
+```
+
+표시를 쉽게 하기 위해 0~255 범위의 `CV_8U`로 normalize했다.
+
+```cpp
+normalize(
+    harris,
+    harrisNorm,
+    0,
+    255,
+    NORM_MINMAX,
+    CV_8U
+);
+```
+
+### FAST
+
+```cpp
+vector<KeyPoint> keypoints;
+FAST(src, keypoints, 60, true);
+```
+
+- 결과 type은 `vector<KeyPoint>`
+- `60`은 threshold
+- 마지막 `true`는 non-maximum suppression 사용
+
+### goodFeaturesToTrack
+
+```cpp
+goodFeaturesToTrack(
+    src,
+    corners,
+    maxCorners,
+    0.01,
+    10
+);
+```
+
+- `maxCorners` -> 최대 corner 수
+- `qualityLevel` -> 가장 강한 corner response에 대한 품질 기준
+- `minDistance` -> 검출된 corner 사이의 최소 거리
+- 결과 type은 `vector<Point2f>`
+
+trackbar callback에 여러 값을 넘기기 위해 구조체의 주소를 `void*`로 전달했다.
+
+정리:
+- Harris -> 각 pixel의 corner response를 계산
+- FAST -> 빠른 keypoint 검출
+- `goodFeaturesToTrack()` -> 추적하기 좋은 corner를 개수와 간격 조건으로 선택
+
+## ORB keypoint와 descriptor
+
+`52_orb.cpp`에서는 같은 카메라 frame에 FAST, `goodFeaturesToTrack()`, ORB 결과를 각각 표시했다.
+
+```cpp
+Ptr<Feature2D> feature = ORB::create();
+
+feature->detectAndCompute(
+    img,
+    noArray(),
+    keypoints,
+    desc
+);
+```
+
+ORB는 keypoint 위치만 찾는 것이 아니라 각 keypoint를 비교할 수 있는 binary descriptor도 만든다.
+
+```cpp
+drawKeypoints(
+    img,
+    keypoints,
+    output,
+    Scalar::all(-1),
+    DrawMatchesFlags::DRAW_RICH_KEYPOINTS
+);
+```
+
+`DRAW_RICH_KEYPOINTS`를 사용하면 keypoint의 크기와 방향 정보도 같이 표시할 수 있다.
+
+확인할 값:
+- `keypoints.size()` -> 찾은 특징점 개수
+- `desc.rows` -> descriptor 개수
+- `desc.cols` -> descriptor 하나의 길이
+- ORB descriptor의 `dtype` -> 보통 `CV_8U`
+
+## ORB feature matching
+
+`53_matching.cpp`에서는 책 이미지와 카메라 frame의 ORB descriptor를 비교했다.
+
+```cpp
+Ptr<DescriptorMatcher> matcher =
+    BFMatcher::create(NORM_HAMMING);
+
+matcher->match(desc1, desc2, matches);
+sort(matches.begin(), matches.end());
+```
+
+ORB는 binary descriptor이므로 거리 계산에 `NORM_HAMMING`을 사용했다.<br>
+`DMatch::distance`가 작을수록 descriptor가 더 비슷하다고 볼 수 있다.
+
+좋은 match의 좌표를 모아서 homography를 구했다.
+
+```cpp
+Mat M = findHomography(
+    pts1,
+    pts2,
+    RANSAC
+);
+
+perspectiveTransform(
+    corners1,
+    corners2,
+    M
+);
+```
+
+`RANSAC`은 잘못 연결된 match의 영향을 줄이면서 변환 관계를 찾는 데 사용한다.
+
+주의:
+- `desc1`이나 `desc2`가 비어 있으면 matching을 진행하면 안 됨
+- match가 50개보다 적을 수 있으므로 실제 개수와 `min(50, matches.size())`를 비교해야 함
+- homography 계산에는 최소 4쌍의 대응점이 필요
+- `findHomography()`가 실패하면 빈 `Mat`이 나올 수 있으므로 확인 필요
+- 현재 코드는 위 조건을 모두 검사하지 않아서 특징점이 적은 frame에서는 오류가 날 수 있음
+
+정리:
+- ORB로 keypoint와 descriptor 생성
+- Hamming distance로 binary descriptor 비교
+- 좋은 match 좌표로 homography 계산
+- 기준 이미지의 네 모서리를 현재 camera frame으로 변환
+
+## KNN 평면 분류
+
+`54_knnplane.cpp`에서는 2차원 좌표를 세 class로 나누는 KNN 분류를 확인했다.
+
+```cpp
+Mat newSample =
+    (Mat_<float>(1, 2) << pt.x, pt.y);
+
+train.push_back(newSample);
+label.push_back(cls);
+```
+
+한 sample은 `(x, y)` 두 개의 feature를 가진다.
+
+```cpp
+knn->train(
+    train,
+    ROW_SAMPLE,
+    label
+);
+```
+
+`ROW_SAMPLE`은 train matrix의 한 row가 sample 하나라는 뜻이다.
+
+화면의 모든 pixel 좌표를 sample로 넣고 예측 class에 따라 배경색을 바꿨다.
+
+```cpp
+Mat sample =
+    (Mat_<float>(1, 2) << x, y);
+
+knn->findNearest(
+    sample,
+    kValue,
+    result
+);
+```
+
+trackbar로 `k` 값을 바꾸면 결정 영역이 어떻게 달라지는지 확인할 수 있다.
+
+정리:
+- `k`가 작으면 가까운 sample의 영향을 크게 받음
+- `k`가 커지면 주변 여러 sample의 다수결 영향을 받음
+- feature scale이 많이 다르면 거리 계산 전에 정규화가 필요할 수 있음
+
+## KNN 손글씨 숫자 분류
+
+`55_knndigit.cpp`에서는 `digits.png`를 20 x 20 image로 잘라 KNN을 학습했다.
+
+```cpp
+Mat roi = digits(
+    Rect(i * 20, j * 20, 20, 20)
+);
+
+roi.convertTo(roiFloat, CV_32F);
+Mat roiFlatten = roiFloat.reshape(1, 1);
+```
+
+20 x 20 image를 한 row로 펴면 feature가 400개인 sample이 된다.
+
+```text
+20 x 20 image
+-> 1 x 400 vector
+```
+
+현재 `digits.png`는 숫자별로 5개 row씩 배치되어 있어서 label을 아래처럼 만들었다.
+
+```cpp
+trainLabels.push_back(j / 5);
+```
+
+```text
+row 0~4   -> label 0
+row 5~9   -> label 1
+...
+row 45~49 -> label 9
+```
+
+마우스로 그린 400 x 400 image도 학습 image와 같은 20 x 20 크기로 줄이고 펼쳐야 한다.
+
+```cpp
+resize(
+    img,
+    imgResize,
+    Size(20, 20),
+    0,
+    0,
+    INTER_AREA
+);
+
+imgResize.convertTo(imgFloat, CV_32F);
+Mat imgFlatten = imgFloat.reshape(1, 1);
+
+knn->findNearest(
+    imgFlatten,
+    3,
+    result
+);
+```
+
+확인한 점:
+- 학습 sample과 예측 sample의 feature 개수가 같아야 함
+- KNN 입력은 `CV_32F`로 맞춤
+- space key를 누르면 예측하고 drawing 화면을 초기화
+- ESC를 누르면 종료
+
+주의:
+- 손글씨의 위치, 크기, 굵기가 학습 image와 너무 다르면 오답이 나올 수 있음
+- 현재 실습은 숫자를 중앙 정렬하거나 deskew하는 전처리는 하지 않음
+- 입력 전처리가 분류 성능에 큰 영향을 줌
+
+정리:
+- image도 pixel을 펼치면 하나의 feature vector로 사용할 수 있음
+- train data와 test data에 같은 resize, dtype, reshape 과정이 필요
+- 간단한 KNN으로도 손글씨 분류 흐름을 확인할 수 있음
