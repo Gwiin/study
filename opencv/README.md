@@ -5425,3 +5425,257 @@ knn->findNearest(
 - image도 pixel을 펼치면 하나의 feature vector로 사용할 수 있음
 - train data와 test data에 같은 resize, dtype, reshape 과정이 필요
 - 간단한 KNN으로도 손글씨 분류 흐름을 확인할 수 있음
+
+## OpenCV DNN image classification
+
+`part6/classify/classify.cpp`에서는 학습이 끝난 GoogLeNet model로 image classification을 실행했다.
+
+직접 신경망을 학습하는 코드는 아니고, 저장된 model을 불러와서 inference만 수행한다.
+
+필요한 파일:
+
+```text
+bvlc_googlenet.caffemodel
+deploy.prototxt
+classification_classes_ILSVRC2012.txt
+```
+
+- `.caffemodel` -> 학습된 weight
+- `.prototxt` -> network layer 구조
+- class text file -> output index에 대응되는 class 이름
+
+정리:
+- network 구조와 학습 weight는 서로 다른 파일
+- 둘 중 하나라도 맞지 않으면 network를 정상적으로 불러올 수 없음
+- 현재 model은 ImageNet 1000개 class를 구분하도록 학습된 GoogLeNet이다
+
+## DNN model 불러오기
+
+OpenCV의 DNN module은 여러 deep learning framework의 저장된 model을 읽어서 inference할 수 있다.
+
+```cpp
+using namespace cv::dnn;
+
+Net net = readNet(
+    folderPath + "bvlc_googlenet.caffemodel",
+    folderPath + "deploy.prototxt"
+);
+```
+
+model을 읽지 못한 경우를 확인한다.
+
+```cpp
+if (net.empty())
+{
+    cerr << "Network load failed!" << endl;
+    return -1;
+}
+```
+
+주의할 점:
+- model 파일은 약 52MB이므로 경로와 download 완료 여부 확인
+- `.caffemodel`과 `.prototxt`가 같은 network용 파일인지 확인
+- OpenCV가 DNN module을 포함해서 build된 환경이어야 함
+
+## classification class 이름 읽기
+
+network output은 바로 문자열이 아니라 class별 score 배열이다.<br>
+그래서 output index와 class 이름을 연결할 text file이 필요하다.
+
+```cpp
+ifstream fp(
+    folderPath +
+    "classification_classes_ILSVRC2012.txt"
+);
+
+vector<String> classNames;
+string name;
+
+while (getline(fp, name))
+{
+    if (!name.empty())
+        classNames.push_back(name);
+}
+```
+
+현재 실습 코드에서는 `while (!fp.eof())`를 사용했지만, 보통은 `getline()` 결과를 반복 조건으로 사용하는 쪽이 안전하다.
+
+```cpp
+while (getline(fp, name))
+{
+    // 읽기에 성공한 line만 처리
+}
+```
+
+확인할 값:
+- `classNames.size()` -> 1000
+- output score 개수와 class 이름 개수가 같은지 확인
+
+주의:
+- 외부에서 받은 class text file이 CRLF이면 Linux에서 문자열 끝에 `\r`이 남을 수 있음
+- 화면 표시가 이상하면 마지막 `\r`을 제거하거나 LF 형식으로 변환
+
+## blobFromImage 전처리
+
+일반 image `Mat`을 network 입력 형태인 blob으로 변환했다.
+
+```cpp
+Mat inputBlob = blobFromImage(
+    img,
+    1,
+    Size(224, 224),
+    Scalar(104, 117, 123)
+);
+```
+
+parameter:
+- `img` -> 입력 BGR image
+- `1` -> pixel 값에 곱하는 scale factor
+- `Size(224, 224)` -> network 입력 크기
+- `Scalar(104, 117, 123)` -> 각 BGR channel에서 뺄 mean 값
+
+실제 확인 결과:
+
+```text
+blob shape: 1 x 3 x 224 x 224
+blob dtype: CV_32F
+```
+
+blob의 차원은 보통 NCHW 순서로 볼 수 있다.
+
+```text
+N -> batch size
+C -> channel
+H -> height
+W -> width
+```
+
+현재 입력:
+
+```text
+1 x 3 x 224 x 224
+```
+
+- image 1개
+- BGR channel 3개
+- height 224
+- width 224
+
+주의할 점:
+- model이 학습될 때 사용한 image 크기, channel 순서, mean 값을 맞춰야 함
+- 같은 image라도 전처리 방식이 다르면 결과가 달라질 수 있음
+- OpenCV image는 기본적으로 BGR이므로 RGB 기반 model인지 확인 필요
+
+## DNN inference
+
+전처리한 blob을 network의 입력으로 설정한다.
+
+```cpp
+net.setInput(inputBlob, "data");
+Mat prob = net.forward();
+```
+
+- `"data"` -> `deploy.prototxt`에 정의된 input layer 이름
+- `forward()` -> network의 forward propagation 실행
+- `prob` -> class별 score
+
+실제 output:
+
+```text
+shape: 1 x 1000
+```
+
+image 하나에 대해 ImageNet 1000개 class의 score가 나온다.
+
+가장 큰 score와 위치를 찾았다.
+
+```cpp
+double maxVal;
+Point maxLoc;
+
+minMaxLoc(
+    prob,
+    nullptr,
+    &maxVal,
+    nullptr,
+    &maxLoc
+);
+```
+
+현재 output이 `1 x 1000` row matrix이므로 class index는 `maxLoc.x`에 들어온다.
+
+```cpp
+String result = format(
+    "%s (%4.2lf%%)",
+    classNames[maxLoc.x].c_str(),
+    maxVal * 100
+);
+```
+
+정리:
+- `forward()` 결과는 class 이름이 아니라 숫자 score
+- 가장 큰 score의 index를 class 이름 목록과 연결
+- `maxVal * 100`으로 percentage 형태로 표시
+
+## classification 실행 결과
+
+현재 model과 전처리 방식으로 sample image를 확인했다.
+
+```text
+space_shuttle.jpg
+-> space shuttle
+-> 99.99%
+
+beagle.jpg
+-> beagle
+-> 78.35%
+
+cup.jpg
+-> espresso
+-> 99.72%
+
+pineapple.jpg
+-> pineapple, ananas
+-> 99.99%
+
+scooter.jpg
+-> motor scooter, scooter
+-> 59.21%
+```
+
+확인한 점:
+- `cup.jpg`는 물체 이름을 cup보다 내용물인 espresso로 분류함
+- 정답 class가 맞아도 confidence 값은 image마다 다름
+- score가 높다고 항상 실제 의미까지 정확한 것은 아님
+- ImageNet에 정의된 class 중 하나로만 결과가 나옴
+
+실행할 image 이름을 argument로 전달할 수 있다.
+
+```bash
+./classify beagle.jpg
+./classify pineapple.jpg
+```
+
+argument가 없으면 `space_shuttle.jpg`를 사용한다.
+
+```cpp
+if (argc < 2)
+    img = imread(
+        folderPath + "space_shuttle.jpg"
+    );
+else
+    img = imread(
+        folderPath + argv[1]
+    );
+```
+
+주의:
+- 현재 코드는 전달받은 파일 이름 앞에 `folderPath`를 붙임
+- 다른 directory의 전체 경로를 바로 전달하는 구조는 아님
+- image를 읽지 못하면 `img.empty()`가 true
+
+정리:
+- OpenCV DNN으로 학습된 network의 inference를 실행할 수 있음
+- image를 model 입력 규격에 맞는 blob으로 전처리해야 함
+- output score의 index를 class 이름과 연결해서 결과를 표시
+- model의 학습 class와 전처리 조건을 알고 사용하는 것이 중요
