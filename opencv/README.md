@@ -5679,3 +5679,534 @@ else
 - image를 model 입력 규격에 맞는 blob으로 전처리해야 함
 - output score의 index를 class 이름과 연결해서 결과를 표시
 - model의 학습 class와 전처리 조건을 알고 사용하는 것이 중요
+
+## OpenPose hand pose estimation
+
+`56_handpose.cpp`에서는 OpenPose hand model로 손의 keypoint를 찾고 뼈대 모양으로 연결했다.
+
+필요한 파일:
+
+```text
+pose_deploy.prototxt
+pose_iter_102000.caffemodel
+```
+
+- `.prototxt` -> hand pose network 구조
+- `.caffemodel` -> 학습된 weight
+- 현재 weight 파일은 약 147MB
+
+model 불러오기:
+
+```cpp
+Net net = readNetFromCaffe(
+    protoFile,
+    weightsFile
+);
+
+net.setPreferableBackend(
+    DNN_BACKEND_OPENCV
+);
+net.setPreferableTarget(
+    DNN_TARGET_CPU
+);
+```
+
+현재 환경은 OpenCV DNN의 CPU target으로 실행했다.
+
+## 손 keypoint와 연결 관계
+
+손의 keypoint는 손목 1개와 각 손가락 관절을 합쳐 21개를 사용한다.
+
+```cpp
+constexpr int nPoints = 21;
+```
+
+대략적인 index:
+
+```text
+0       -> wrist
+1 ~ 4   -> thumb
+5 ~ 8   -> index finger
+9 ~ 12  -> middle finger
+13 ~ 16 -> ring finger
+17 ~ 20 -> little finger
+```
+
+서로 연결할 keypoint index를 `POSE_PAIRS`에 저장했다.
+
+```cpp
+const int POSE_PAIRS[20][2] = {
+    {0, 1}, {1, 2}, {2, 3}, {3, 4},
+    {0, 5}, {5, 6}, {6, 7}, {7, 8},
+    {0, 9}, {9, 10}, {10, 11}, {11, 12},
+    {0, 13}, {13, 14}, {14, 15}, {15, 16},
+    {0, 17}, {17, 18}, {18, 19}, {19, 20}
+};
+```
+
+정리:
+- model output에서 각 관절 위치를 찾음
+- `POSE_PAIRS` 순서대로 두 점을 연결
+- keypoint 하나가 검출되지 않으면 해당 뼈대 선은 그리지 않음
+
+## hand pose 입력 blob
+
+카메라 frame의 비율을 유지하면서 network 입력 크기를 계산했다.
+
+```cpp
+constexpr int inputHeight = 224;
+
+int inputWidth =
+    cvRound(
+        aspectRatio * inputHeight / 8
+    ) * 8;
+```
+
+640 x 480 camera에서는 아래 크기로 들어갔다.
+
+```text
+input width  = 296
+input height = 224
+```
+
+blob 생성:
+
+```cpp
+Mat inputBlob = blobFromImage(
+    frame,
+    1.0 / 255,
+    Size(inputWidth, inputHeight),
+    Scalar(0, 0, 0),
+    false,
+    false
+);
+```
+
+- pixel 값을 `0 ~ 1` 범위로 scaling
+- BGR과 RGB channel을 바꾸지 않음
+- crop하지 않고 지정한 크기로 resize
+- blob dtype은 보통 `CV_32F`
+
+주의:
+- 입력 크기를 작게 하면 빨라지지만 작은 손가락 관절의 위치 정확도가 떨어질 수 있음
+- 입력 크기를 크게 하면 정확도는 좋아질 수 있지만 CPU inference가 느려짐
+
+## heatmap에서 keypoint 찾기
+
+network output의 각 channel에는 keypoint별 probability heatmap이 들어 있다.
+
+```cpp
+Mat output = net.forward();
+
+int heatmapHeight = output.size[2];
+int heatmapWidth = output.size[3];
+```
+
+각 keypoint channel에서 가장 큰 값을 찾았다.
+
+```cpp
+Mat probabilityMap(
+    heatmapHeight,
+    heatmapWidth,
+    CV_32F,
+    output.ptr(0, keypointIndex)
+);
+
+Point maxLocation;
+double probability;
+
+minMaxLoc(
+    probabilityMap,
+    nullptr,
+    &probability,
+    nullptr,
+    &maxLocation
+);
+```
+
+heatmap 좌표를 원본 camera frame 좌표로 변환한다.
+
+```cpp
+Point point(
+    cvRound(
+        static_cast<double>(frameWidth) *
+        maxLocation.x /
+        heatmapWidth
+    ),
+    cvRound(
+        static_cast<double>(frameHeight) *
+        maxLocation.y /
+        heatmapHeight
+    )
+);
+```
+
+확인한 점:
+- heatmap은 원본 frame보다 작은 배열
+- 전체 heatmap을 640 x 480으로 resize하지 않아도 좌표 비율로 변환 가능
+- probability가 threshold보다 작으면 `Point(-1, -1)`로 처리
+
+## hand pose camera 지연 문제
+
+처음 코드는 체감상 약 5초 정도 화면이 늦게 따라왔다.
+
+원인은 한 frame의 DNN inference가 camera 입력 속도보다 느린 상태에서 frame queue가 계속 쌓였기 때문이다.
+
+```text
+camera: 약 30 FPS로 frame 생성
+DNN: 한 frame 처리에 약 0.67초
+```
+
+처리 중에도 camera는 새 frame을 계속 만들기 때문에 순서대로 읽으면 오래된 frame을 보게 된다.
+
+입력 높이에 따른 model inference 측정:
+
+```text
+496 x 368 -> 약 0.67초
+344 x 256 -> 약 0.33초
+304 x 224 -> 약 0.25초
+248 x 184 -> 약 0.16초
+216 x 160 -> 약 0.14초
+176 x 128 -> 약 0.09초
+```
+
+현재 코드는 높이 224를 사용했다.<br>
+실제 camera 실행에서는 보통 `0.24 ~ 0.32초/frame` 정도가 나왔다.
+
+## 최신 camera frame만 사용하기
+
+누적 지연을 줄이기 위해 camera capture와 DNN inference를 다른 thread로 분리했다.
+
+```cpp
+Mat latestFrame;
+mutex frameMutex;
+atomic<bool> captureRunning(true);
+
+thread captureThread([&]()
+{
+    Mat capturedFrame;
+
+    while (captureRunning)
+    {
+        if (!cap.read(capturedFrame))
+            continue;
+
+        lock_guard<mutex> lock(frameMutex);
+        capturedFrame.copyTo(latestFrame);
+    }
+});
+```
+
+inference thread는 queue의 오래된 frame을 하나씩 처리하지 않고 가장 최근 frame을 복사한다.
+
+```cpp
+Mat frame;
+
+{
+    lock_guard<mutex> lock(frameMutex);
+
+    if (!latestFrame.empty())
+        latestFrame.copyTo(frame);
+}
+```
+
+camera buffer도 가능한 경우 1로 요청했다.
+
+```cpp
+cap.set(CAP_PROP_BUFFERSIZE, 1);
+```
+
+주의:
+- camera backend와 driver에 따라 buffer size 설정이 적용되지 않을 수 있음
+- `Mat`을 두 thread가 같이 사용하므로 `mutex`로 접근을 보호
+- 종료할 때 capture thread를 `join()`해야 함
+
+정리:
+- 느린 inference에서는 FPS보다 최신 frame을 보여주는 것이 체감 반응성에 중요
+- capture thread는 최신 frame을 계속 갱신
+- 처리하지 못한 중간 frame은 버리고 지연 누적을 막음
+
+## YOLOX object detection
+
+`part6/yolox`에서는 ONNX 형식의 YOLOX model로 camera object detection을 실행했다.
+
+필요한 model:
+
+```text
+object_detection_yolox_2022nov.onnx
+```
+
+model 불러오기:
+
+```cpp
+Net net = readNet(modelPath);
+
+net.setPreferableBackend(backendId);
+net.setPreferableTarget(targetId);
+```
+
+YOLOX는 classification과 다르게 image 안의 여러 object에 대해 아래 값을 출력한다.
+
+```text
+bounding box
+objectness
+class score
+class id
+```
+
+현재 class 목록은 COCO의 80개 class를 사용한다.
+
+```text
+person, bicycle, car, ...
+cup, chair, laptop, ...
+```
+
+## YOLOX letterbox
+
+camera frame을 640 x 640으로 바로 늘리면 원래 가로세로 비율이 달라진다.<br>
+그래서 비율을 유지해서 resize한 뒤 남는 영역을 padding으로 채웠다.
+
+```cpp
+double ratio = min(
+    targetHeight /
+        static_cast<double>(src.rows),
+    targetWidth /
+        static_cast<double>(src.cols)
+);
+
+resize(
+    src,
+    resized,
+    Size(newWidth, newHeight)
+);
+```
+
+padding image:
+
+```cpp
+Mat padded(
+    640,
+    640,
+    CV_32FC3,
+    Scalar::all(114.0)
+);
+```
+
+resize image를 왼쪽 위부터 복사한다.
+
+```cpp
+resized32F.copyTo(
+    padded(
+        Rect(0, 0, newWidth, newHeight)
+    )
+);
+```
+
+정리:
+- letterbox는 원본 aspect ratio를 유지
+- 빈 공간은 보통 일정한 pixel 값으로 채움
+- 검출 좌표를 원본 frame으로 돌릴 때 resize ratio를 다시 나눔
+
+## YOLOX blob과 ONNX inference
+
+letterbox 결과를 DNN blob으로 변환했다.
+
+```cpp
+blobFromImage(
+    image,
+    blob,
+    1.0,
+    Size(image.cols, image.rows),
+    Scalar(),
+    true,
+    false,
+    CV_32F
+);
+```
+
+현재 `swapRB=true`이므로 BGR input을 RGB 순서로 바꾼다.
+
+```cpp
+net.setInput(blob);
+
+vector<Mat> outputs;
+net.forward(
+    outputs,
+    net.getUnconnectedOutLayersNames()
+);
+```
+
+주의:
+- ONNX model이 기대하는 input 크기와 전처리 방식을 맞춰야 함
+- 현재 model 입력은 640 x 640
+- hand pose model과 달리 YOLOX 전처리는 BGR을 RGB로 바꿈
+
+## YOLOX grid와 stride
+
+YOLOX는 여러 크기의 feature map에서 object를 예측한다.
+
+현재 stride:
+
+```cpp
+vector<int> strides = {
+    8,
+    16,
+    32
+};
+```
+
+640 x 640 input을 기준으로 feature map 크기는 아래처럼 볼 수 있다.
+
+```text
+stride 8  -> 80 x 80
+stride 16 -> 40 x 40
+stride 32 -> 20 x 20
+```
+
+전체 prediction 위치:
+
+```text
+80 x 80 + 40 x 40 + 20 x 20
+= 8400
+```
+
+network output의 중심 좌표에는 grid 위치를 더하고 stride를 곱한다.
+
+```cpp
+center = (prediction + grid) * stride;
+size = exp(prediction) * stride;
+```
+
+정리:
+- 작은 stride는 작은 object를 찾는 데 유리
+- 큰 stride는 큰 영역을 넓게 봄
+- 여러 scale의 prediction을 합쳐서 사용
+
+## confidence와 class score
+
+먼저 object가 있을 가능성인 objectness를 확인했다.
+
+```cpp
+float objectScore =
+    detections.at<float>(row, 4);
+
+if (objectScore < objectThreshold)
+    continue;
+```
+
+최종 class score는 class probability에 objectness를 곱했다.
+
+```cpp
+Mat rowScores =
+    classScores.row(row) * objectScore;
+```
+
+```text
+final score
+= objectness x class probability
+```
+
+현재 threshold:
+
+```text
+confidence threshold = 0.5
+object threshold     = 0.5
+NMS threshold        = 0.5
+```
+
+threshold가 너무 낮으면 검출 수와 오검출이 늘어날 수 있다.<br>
+너무 높으면 실제 object도 놓칠 수 있다.
+
+## NMS로 겹치는 box 정리
+
+같은 object 주변에 비슷한 box가 여러 개 나올 수 있다.
+
+```cpp
+NMSBoxes(
+    classBoxes,
+    classScores,
+    confidenceThreshold,
+    nmsThreshold,
+    keep
+);
+```
+
+현재 코드는 class별로 box를 나눈 뒤 NMS를 적용했다.
+
+정리:
+- score가 높은 box를 기준으로 선택
+- 많이 겹치는 낮은 score box는 제거
+- class별 NMS라서 서로 다른 class의 box는 따로 처리
+
+## YOLOX CPU와 CUDA
+
+`demo.cpp`는 CUDA backend와 target을 요청한다.
+
+```cpp
+DNN_BACKEND_CUDA
+DNN_TARGET_CUDA
+```
+
+현재 OpenCV 4.5.4는 CUDA DNN backend 없이 build되어 아래 warning이 나왔다.
+
+```text
+DNN module was not built with CUDA backend;
+switching to CPU
+```
+
+`demo1.cpp`는 CPU를 명시한다.
+
+```cpp
+DNN_BACKEND_OPENCV
+DNN_TARGET_CPU
+```
+
+현재 CPU 실행 결과:
+
+```text
+약 4.3 ~ 6.2 FPS
+```
+
+주의:
+- CUDA GPU가 있어도 OpenCV 자체가 CUDA DNN 지원으로 build되지 않으면 사용할 수 없음
+- CUDA version, cuDNN, OpenCV build option을 같이 확인해야 함
+- CPU 환경에서는 `demo1.cpp`처럼 backend와 target을 명확히 지정하는 것이 확인하기 편함
+
+## YOLOX build와 실행 위치
+
+`yolox/CMakeLists.txt`는 `demo.cpp`를 별도 target으로 build한다.
+
+```bash
+cd opencv/part6/yolox
+cmake -S . -B build
+cmake --build build
+cd build
+./opencv_zoo_object_detection_yolox
+```
+
+현재 model path가 상대 경로로 되어 있다.
+
+```cpp
+const string model =
+    "../object_detection_yolox_2022nov.onnx";
+```
+
+그래서 executable을 `yolox/build` directory에서 실행해야 model 파일을 찾는다.
+
+CPU version 확인:
+
+```bash
+cd opencv/part6/yolox/build
+./yolox_cpu
+```
+
+주의:
+- 다른 working directory에서 실행하면 ONNX file을 찾지 못할 수 있음
+- 오류가 나면 executable 위치보다 현재 working directory와 model 상대 경로를 먼저 확인
+
+정리:
+- YOLOX는 한 image에서 여러 object의 위치와 class를 같이 예측
+- letterbox로 aspect ratio를 유지
+- grid와 stride로 bounding box 좌표를 복원
+- confidence filtering과 NMS로 최종 detection을 선택
+- backend에 따라 CPU 또는 CUDA 실행 성능이 달라짐
