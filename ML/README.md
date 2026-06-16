@@ -25,8 +25,11 @@ ML/
 ├─ uv.lock
 ├─ .venv/
 ├─ references/
-│  └─ 1_넘파이_KarL.pdf
-└─ numpy/
+│  ├─ 1_넘파이_KarL.pdf
+│  └─ 2_맷플롯립_KarL.pdf
+├─ numpy/
+│  └─ ex_01.ipynb
+└─ matplot/
    └─ ex_01.ipynb
 ```
 
@@ -36,12 +39,14 @@ ML/
 - `.venv/`: `uv`가 생성하는 가상환경이며 Git에는 포함하지 않음
 - `references/`: 수업에서 제공된 강의 자료와 참고 문서
 - `numpy/`: NumPy 실습 노트북과 예제 코드
+- `matplot/`: Matplotlib 실습 노트북과 예제 코드
 
 NumPy, pandas, matplotlib, scikit-learn은 서로 연계되므로 우선 `ML`에서 하나의 가상환경을 공유한다. 특정 과정에서 의존성 충돌이 생길 때만 별도 프로젝트로 분리한다.
 
 ## 강의 자료
 
 - `references/1_넘파이_KarL.pdf`: NumPy 수업 참고 자료
+- `references/2_맷플롯립_KarL.pdf`: Matplotlib 수업 참고 자료
 
 README를 정리할 때 강의 자료의 설명 순서와 수업 맥락을 참고한다. 다만 강의 자료의 내용을 그대로 옮기거나 무조건 정답으로 취급하지 않는다. 코드의 실제 실행 결과와 현재 NumPy 공식 문서를 함께 확인하여 잘못되었거나 버전에 따라 달라진 내용은 바로잡는다.
 
@@ -349,6 +354,193 @@ print(np.sin(angles))
 - 일정한 간격은 `arange`, 일정한 개수는 `linspace`, 로그 간격은 `logspace`를 사용한다.
 - 부동소수점 계산 결과는 정확한 0이나 소수 표현과 조금 다를 수 있다.
 
+### 배열 조작 추가 실습
+
+이번 추가 실습에서는 배열의 삽입, 뒤집기, 슬라이싱, 조건 선택, 전치, 정렬, 결합을 확인했다.
+
+#### `np.insert()`
+
+```python
+a = np.array([[1, 1], [2, 2], [3, 3]])
+b = np.insert(a, 1, 4, axis=0)
+c = np.insert(a, 1, 4, axis=1)
+
+print(a.shape)
+print(b.shape)
+print(c.shape)
+```
+
+확인할 내용:
+
+```text
+(3, 2)
+(4, 2)
+(3, 3)
+```
+
+`axis=0`으로 삽입하면 첫 번째 축의 길이가 늘어나고, `axis=1`로 삽입하면 두 번째 축의 길이가 늘어난다. `axis`는 어느 방향으로 보이는지가 아니라 어느 축의 크기가 바뀌는지로 확인하는 편이 안전하다.
+
+#### `np.flip()`
+
+```python
+c = np.array([[1, 2, 3], [4, 5, 6]])
+
+print(np.flip(c, axis=1))
+print(np.flip(c, axis=0))
+```
+
+실행 결과:
+
+```text
+[[3 2 1]
+ [6 5 4]]
+[[4 5 6]
+ [1 2 3]]
+```
+
+`axis=1`은 두 번째 축의 원소 순서를 뒤집고, `axis=0`은 첫 번째 축의 원소 순서를 뒤집는다. 두 축을 모두 뒤집으면 배열 전체를 반대 방향으로 읽는 결과가 된다.
+
+#### 슬라이싱과 조건 선택
+
+```python
+arr_2d = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [0, 1, 2]])
+print(arr_2d[1:, 0:2])
+```
+
+실행 결과:
+
+```text
+[[4 5]
+ [7 8]
+ [0 1]]
+```
+
+슬라이싱은 범위를 잘라오지만 차원을 자동으로 줄이지 않는다. 위 결과는 2차원 배열로 유지된다.
+
+조건식은 배열과 같은 모양의 `bool` 배열을 만든다.
+
+```python
+x = np.arange(1, 17).reshape(4, 4)
+result = x % 2 == 0
+
+print(result)
+print(x[result])
+```
+
+실행 결과:
+
+```text
+[[False  True False  True]
+ [False  True False  True]
+ [False  True False  True]
+ [False  True False  True]]
+[ 2  4  6  8 10 12 14 16]
+```
+
+`x[result]`처럼 Boolean indexing을 사용하면 조건이 `True`인 원소만 1차원 배열로 선택된다.
+
+#### 전치와 정렬
+
+```python
+x = np.arange(1, 17).reshape(4, 4)
+
+print(x.T)
+print(np.transpose(x))
+```
+
+두 코드는 2차원 배열에서 같은 전치 결과를 만든다. 행과 열로 보이는 축이 서로 바뀐다.
+
+정렬은 `axis`에 따라 정렬 기준이 달라진다.
+
+```python
+d = np.array([[35, 24, 55], [69, 19, 9], [4, 1, 11]])
+d.sort(axis=1)
+print(d)
+```
+
+실행 결과:
+
+```text
+[[24 35 55]
+ [ 9 19 69]
+ [ 1  4 11]]
+```
+
+`ndarray.sort()`는 배열 자체를 제자리에서 바꾼다. 원본을 유지해야 한다면 `np.sort()`를 사용해 새 결과를 받는 편이 안전하다.
+
+#### 난수와 데이터 분리
+
+```python
+a = np.arange(10)
+np.random.shuffle(a)
+print(a)
+```
+
+`np.random.shuffle()`은 배열의 순서를 제자리에서 섞는다. seed를 고정하지 않으면 실행할 때마다 결과가 달라질 수 있다.
+
+실습에서는 간단한 `train_test_split()` 함수를 만들어 섞은 데이터를 앞쪽 80%와 뒤쪽 20%로 나눴다.
+
+```python
+def train_test_split(a):
+    divisor = int(len(a) * 0.8)
+    train_data = a[:divisor]
+    test_data = a[divisor:]
+    return train_data, test_data
+```
+
+머신러닝에서는 데이터를 먼저 섞은 뒤 학습용과 테스트용으로 나누는 흐름이 중요하다. 다만 실제 프로젝트에서는 재현성을 위해 random seed를 관리하고, 문제 유형에 따라 계층적 분할 같은 방법도 고려해야 한다.
+
+#### 벡터화 연산과 선형대수
+
+같은 원소별 곱셈을 Python 반복문과 NumPy 배열 연산으로 비교했다.
+
+```python
+arr_a = np.random.rand(1000)
+arr_b = np.random.rand(1000)
+
+result = arr_a * arr_b
+```
+
+배열끼리 직접 곱하면 각 위치의 원소가 한 번에 곱해진다. 실습 출력에서는 반복문보다 배열 연산 시간이 더 짧게 나왔지만, 실행 시간은 환경과 데이터 크기에 따라 달라질 수 있으므로 일반적인 성능 결론으로 단정하지 않는다.
+
+연립방정식은 `np.linalg.solve()`로 풀 수 있다.
+
+```python
+a = np.array([[1, 1, -1], [2, -1, 3], [1, 2, 1]])
+b = np.array([0, 9, 8])
+s = np.linalg.solve(a, b)
+
+print(s)
+```
+
+실행 결과:
+
+```text
+[1. 2. 3.]
+```
+
+`a`는 계수 행렬이고 `b`는 우변 벡터다. `np.linalg.solve(a, b)`는 `a @ s == b`를 만족하는 해 `s`를 계산한다.
+
+#### 배열 결합
+
+```python
+a = np.arange(10, 18).reshape(2, -1)
+b = np.arange(12).reshape(-1, 4)
+
+print(np.concatenate((a, b)))
+print(np.vstack((a, b)))
+```
+
+두 배열 모두 두 번째 축의 크기가 4이므로 첫 번째 축 방향으로 결합할 수 있다. 이 예제에서는 `np.concatenate((a, b))`와 `np.vstack((a, b))`가 같은 결과를 만든다.
+
+정리:
+
+- `axis`는 결과에서 어떤 축의 크기나 순서가 바뀌는지로 확인한다.
+- 슬라이싱은 차원을 유지할 수 있고, Boolean indexing은 조건에 맞는 원소만 뽑아 1차원 결과를 만들 수 있다.
+- `ndarray.sort()`와 `np.random.shuffle()`처럼 원본을 직접 바꾸는 함수는 사용 전에 원본 보존 여부를 확인한다.
+- 머신러닝 데이터 분리는 섞기, 학습/테스트 분리, 재현성 관리가 함께 고려되어야 한다.
+- NumPy 배열 연산은 반복문보다 간결하게 원소별 계산을 표현할 수 있다.
+
 ### 공식 참고 문서
 
 - [NumPy absolute basics for beginners](https://numpy.org/doc/stable/user/absolute_beginners.html)
@@ -357,6 +549,119 @@ print(np.sin(angles))
 - [`numpy.arange`](https://numpy.org/doc/stable/reference/generated/numpy.arange.html)
 - [`numpy.linspace`](https://numpy.org/doc/stable/reference/generated/numpy.linspace.html)
 - [`numpy.logspace`](https://numpy.org/doc/stable/reference/generated/numpy.logspace.html)
+- [`numpy.insert`](https://numpy.org/doc/stable/reference/generated/numpy.insert.html)
+- [`numpy.flip`](https://numpy.org/doc/stable/reference/generated/numpy.flip.html)
+- [`numpy.transpose`](https://numpy.org/doc/stable/reference/generated/numpy.transpose.html)
+- [`numpy.sort`](https://numpy.org/doc/stable/reference/generated/numpy.sort.html)
+- [`numpy.linalg.solve`](https://numpy.org/doc/stable/reference/generated/numpy.linalg.solve.html)
+
+## Matplotlib
+
+Matplotlib은 데이터를 그래프로 시각화할 때 사용하는 Python 라이브러리다. 이번 실습에서는 `matplotlib.pyplot`을 `plt`라는 이름으로 가져와 선 그래프를 그렸다.
+
+이번 학습은 다음 자료를 기준으로 확인했다.
+
+- 실습 파일: `matplot/ex_01.ipynb`
+- 강의 자료: `references/2_맷플롯립_KarL.pdf`
+- 실행 환경: Python 3.13.13, NumPy 2.4.5, Matplotlib 3.10.9
+
+### 기본 선 그래프
+
+`plt.plot(x, y)`는 x축 값과 y축 값을 받아 선 그래프를 그린다.
+
+```python
+import matplotlib.pyplot as plt
+
+plt.plot([1, 2, 3, 4], [1, 2, 3, 4])
+plt.xlabel('x axis')
+plt.ylabel('y axis')
+plt.show()
+```
+
+실행 결과:
+
+```text
+Figure size 640x480 with 1 Axes
+```
+
+노트북에는 PNG 이미지 출력이 함께 저장되어 있다. x값과 y값이 모두 `[1, 2, 3, 4]`이므로 왼쪽 아래에서 오른쪽 위로 올라가는 직선 그래프가 그려진다.
+
+확인할 내용:
+
+- 첫 번째 리스트는 x축 값이다.
+- 두 번째 리스트는 y축 값이다.
+- 두 리스트의 길이가 같아야 각 위치의 값이 하나의 점으로 연결된다.
+- `xlabel()`과 `ylabel()`은 축 이름을 지정한다.
+- `show()`는 지금까지 만든 그래프를 화면에 표시한다.
+
+### NumPy 배열을 이용한 그래프
+
+NumPy로 x값을 만들고, 각 x값을 제곱해 y값을 만든 뒤 그래프로 확인했다.
+
+```python
+import numpy as np
+
+x = np.arange(-10, 11)
+y = np.square(x)
+
+plt.plot(x, y)
+plt.show()
+```
+
+실행 결과:
+
+```text
+Figure size 640x480 with 1 Axes
+```
+
+`np.arange(-10, 11)`은 -10부터 10까지의 정수 배열을 만든다. `stop` 값인 11은 포함되지 않는다.
+
+```python
+print(x.shape)
+print(y.shape)
+print(x.dtype)
+print(y.dtype)
+```
+
+확인할 내용:
+
+```text
+(21,)
+(21,)
+int64
+int64
+```
+
+`x`와 `y`는 모두 길이가 21인 1차원 배열이다. `y = np.square(x)`는 각 원소를 제곱하므로 `x`가 음수여도 `y`는 0 이상의 값이 된다. 그래프는 x가 0일 때 가장 낮고 양쪽으로 갈수록 커지는 포물선 모양이다.
+
+노트북에는 같은 계산을 다음처럼 작성할 수 있다는 주석도 있다.
+
+```python
+y = x ** 2
+```
+
+이번 예제에서는 `np.square(x)`와 `x ** 2`가 같은 제곱 결과를 만든다. 둘 다 배열 전체에 원소별로 적용된다.
+
+주의할 점:
+
+- `plot()`에 전달하는 x와 y의 길이가 다르면 값의 짝을 맞출 수 없어 오류가 발생한다.
+- `np.arange(start, stop)`에서 `stop`은 포함되지 않는다.
+- 노트북의 저장된 출력은 그래프 이미지이므로 텍스트 숫자 결과가 필요한 경우에는 `print()`로 별도 확인해야 한다.
+
+정리:
+
+- Matplotlib의 기본 사용 흐름은 `import`, `plot()`, 축 설정, `show()` 순서다.
+- NumPy 배열로 계산한 결과를 바로 Matplotlib에 전달해 시각화할 수 있다.
+- 그래프를 해석할 때는 입력 배열의 범위, 길이, 자료형을 함께 확인한다.
+- 시각화는 계산 결과를 이해하는 보조 수단이며, 정확한 값 확인은 배열 출력이나 통계 계산으로 따로 확인한다.
+
+### 공식 참고 문서
+
+- [Pyplot tutorial](https://matplotlib.org/stable/tutorials/pyplot.html)
+- [`matplotlib.pyplot.plot`](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.plot.html)
+- [`matplotlib.pyplot.xlabel`](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.xlabel.html)
+- [`matplotlib.pyplot.ylabel`](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.ylabel.html)
+- [`matplotlib.pyplot.show`](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.show.html)
 
 ## 다음 정리 항목
 
@@ -369,5 +674,5 @@ print(np.sin(angles))
 - 난수 생성
 - 선형대수 기초
 - pandas와 데이터 전처리
-- 데이터 시각화
+- Matplotlib 그래프 세부 설정
 - 머신러닝 기본 과정
