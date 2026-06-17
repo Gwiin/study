@@ -26,10 +26,18 @@ ML/
 ├─ .venv/
 ├─ references/
 │  ├─ 1_넘파이_KarL.pdf
-│  └─ 2_맷플롯립_KarL.pdf
+│  ├─ 2_맷플롯립_KarL.pdf
+│  └─ 4_팬다스_KarL.pdf
+├─ csv/
+│  ├─ README.md
+│  ├─ vehicle_prod.csv
+│  └─ ...
 ├─ numpy/
 │  └─ ex_01.ipynb
-└─ matplot/
+├─ matplot/
+│  ├─ ex_01.ipynb
+│  └─ Sine-Cosine.png
+└─ pandas/
    └─ ex_01.ipynb
 ```
 
@@ -38,8 +46,10 @@ ML/
 - `pyproject.toml`, `uv.lock`: ML 과정에서 공유하는 Python 환경
 - `.venv/`: `uv`가 생성하는 가상환경이며 Git에는 포함하지 않음
 - `references/`: 수업에서 제공된 강의 자료와 참고 문서
+- `csv/`: pandas와 시각화 실습에서 사용하는 CSV 데이터
 - `numpy/`: NumPy 실습 노트북과 예제 코드
 - `matplot/`: Matplotlib 실습 노트북과 예제 코드
+- `pandas/`: pandas 실습 노트북과 예제 코드
 
 NumPy, pandas, matplotlib, scikit-learn은 서로 연계되므로 우선 `ML`에서 하나의 가상환경을 공유한다. 특정 과정에서 의존성 충돌이 생길 때만 별도 프로젝트로 분리한다.
 
@@ -47,6 +57,7 @@ NumPy, pandas, matplotlib, scikit-learn은 서로 연계되므로 우선 `ML`에
 
 - `references/1_넘파이_KarL.pdf`: NumPy 수업 참고 자료
 - `references/2_맷플롯립_KarL.pdf`: Matplotlib 수업 참고 자료
+- `references/4_팬다스_KarL.pdf`: pandas 수업 참고 자료
 
 README를 정리할 때 강의 자료의 설명 순서와 수업 맥락을 참고한다. 다만 강의 자료의 내용을 그대로 옮기거나 무조건 정답으로 취급하지 않는다. 코드의 실제 실행 결과와 현재 NumPy 공식 문서를 함께 확인하여 잘못되었거나 버전에 따라 달라진 내용은 바로잡는다.
 
@@ -655,6 +666,172 @@ y = x ** 2
 - 그래프를 해석할 때는 입력 배열의 범위, 길이, 자료형을 함께 확인한다.
 - 시각화는 계산 결과를 이해하는 보조 수단이며, 정확한 값 확인은 배열 출력이나 통계 계산으로 따로 확인한다.
 
+### 축 범위와 선 스타일
+
+그래프의 x축, y축 범위는 `plt.axis([xmin, xmax, ymin, ymax])`로 지정할 수 있다.
+
+```python
+x = np.arange(-10, 11)
+y = np.square(x)
+
+plt.plot(x, y)
+plt.axis([-100, 100, 0, 100])
+plt.show()
+```
+
+`x`는 -10부터 10까지지만, 화면에 표시되는 축 범위는 -100부터 100까지로 넓어진다. 축 범위를 넓히면 실제 데이터가 차지하는 위치를 더 큰 좌표계 안에서 볼 수 있다.
+
+여러 그래프를 한 그림에 겹쳐 그릴 수도 있다.
+
+```python
+x = np.arange(-20, 21)
+y1 = x * 2
+y2 = (1 / 3) * np.square(x) + 5
+y3 = -(x ** 2) - 5
+
+plt.plot(x, y1, 'g--')
+plt.plot(x, y2, 'b-*')
+plt.plot(x, y3, 'r.:')
+plt.axis([-30, 30, -30, 30])
+plt.show()
+```
+
+세 번째 인자는 색, 마커, 선 모양을 짧게 지정하는 형식 문자열이다. 예를 들어 `g--`는 초록색 점선, `b-*`는 파란색 선과 별표 마커, `r.:`는 빨간색 점 마커와 점선을 뜻한다.
+
+주의할 점:
+
+- 스타일 문자열은 그래프를 구분하기 위한 표시 방법이다.
+- 선 모양이 달라져도 원본 데이터 값이 바뀌는 것은 아니다.
+- 축 범위를 너무 좁게 잡으면 일부 데이터가 화면에서 잘릴 수 있다.
+
+### 범례, 축 이름, 이미지 저장
+
+`label`을 지정하고 `legend()`를 호출하면 그래프에 범례를 표시할 수 있다.
+
+```python
+x = np.linspace(0, 2 * np.pi, 1000)
+y1 = np.sin(x)
+y2 = np.cos(x)
+
+plt.plot(x, y1, 'b--', label='Sine wave')
+plt.plot(x, y2, 'r--', label='Cosine wave')
+plt.legend()
+plt.xlabel('time')
+plt.ylabel('magnitude')
+plt.savefig('Sine-Cosine.png')
+plt.show()
+```
+
+확인할 내용:
+
+- `np.linspace(0, 2 * np.pi, 1000)`은 0부터 `2π`까지 1000개의 값을 만든다.
+- `np.sin(x)`와 `np.cos(x)`는 각 x값에 대해 사인, 코사인 값을 계산한다.
+- `legend()`는 `label` 값을 읽어 범례를 만든다.
+- `savefig()`는 현재 figure를 이미지 파일로 저장한다.
+
+이번 실습에서는 `matplot/Sine-Cosine.png` 파일이 생성되었다. 노트북에서 `savefig('Sine-Cosine.png')`처럼 상대 경로를 사용하면 실행 위치에 따라 저장 위치가 달라질 수 있으므로, 필요한 경우 저장 경로를 명확히 지정한다.
+
+### 여러 그래프 배치
+
+`plt.subplots()`를 사용하면 하나의 figure 안에 여러 axes를 만들 수 있다.
+
+```python
+fig, ax = plt.subplots(2, 2)
+
+X = np.random.randn(100)
+Y = np.random.randn(100)
+ax[0, 0].scatter(X, Y)
+
+X = np.arange(10)
+Y = np.random.uniform(1, 10, 10)
+ax[0, 1].bar(X, Y)
+
+X = np.linspace(0, 10, 100)
+Y = np.cos(X)
+ax[1, 0].plot(X, Y)
+
+Z = np.random.uniform(0, 1, (5, 5))
+ax[1, 1].imshow(Z)
+```
+
+확인할 내용:
+
+- `fig`는 전체 그림이다.
+- `ax`는 각 subplot의 좌표축 배열이다.
+- `ax[0, 0]`, `ax[0, 1]`처럼 위치를 지정해 각 칸에 다른 그래프를 그린다.
+- `scatter`, `bar`, `plot`, `imshow`는 데이터의 성격에 따라 다른 시각화 방식을 제공한다.
+
+더 복잡한 배치는 `GridSpec`으로 만들 수 있다.
+
+```python
+fig = plt.figure(figsize=(7, 5), constrained_layout=True)
+grid = plt.GridSpec(3, 3, figure=fig)
+
+ax1 = fig.add_subplot(grid[0, :])
+ax2 = fig.add_subplot(grid[1, 0:2])
+ax3 = fig.add_subplot(grid[2, 0])
+ax4 = fig.add_subplot(grid[2, 1])
+ax5 = fig.add_subplot(grid[1:, 2])
+```
+
+`grid[0, :]`는 첫 번째 행 전체를 사용하고, `grid[1:, 2]`는 두 번째 행부터 마지막 행까지의 세 번째 열을 사용한다. 단순한 격자는 `subplots()`가 편하고, 서로 다른 크기의 영역이 필요하면 `GridSpec`이 더 적합하다.
+
+### 비율과 분포 시각화
+
+비율 데이터는 pie chart로 볼 수 있다.
+
+```python
+data = [5, 4, 6, 11]
+clist = ['cyan', 'gray', 'orange', 'red']
+explode = [.06, .07, .08, .09]
+
+plt.pie(data, autopct='%.2f%%', colors=clist, labels=clist, explode=explode)
+plt.show()
+```
+
+`autopct='%.2f%%'`는 각 조각의 비율을 소수 둘째 자리까지 표시한다. `explode`는 각 조각을 중심에서 조금씩 떨어뜨려 강조한다.
+
+분포는 histogram으로 확인할 수 있다.
+
+```python
+heights = np.array(np.random.randint(150, 180, 30))
+plt.hist(heights, bins=6)
+plt.xlabel('height')
+plt.ylabel('frequency')
+```
+
+`bins`는 값을 몇 개의 구간으로 나눌지 정한다. 같은 데이터라도 `bins` 값이 달라지면 분포가 다르게 보일 수 있다.
+
+누적 histogram은 다음처럼 그릴 수 있다.
+
+```python
+plt.hist(heights, bins=6, label='cumulative=True', cumulative=True)
+plt.hist(heights, bins=6, label='cumulative=False', cumulative=False)
+plt.legend(loc='upper left')
+```
+
+정규분포 형태의 난수도 histogram으로 확인했다.
+
+```python
+f1 = np.random.normal(loc=0, scale=1, size=100000)
+f2 = np.random.normal(loc=3, scale=1, size=100000)
+
+plt.hist(f1, bins=200, color='red', alpha=.4, label='avg = 0, std = 1')
+plt.hist(f2, bins=200, color='green', alpha=.4, label='avg = 3, std = 1')
+plt.axis([-8, 8, -2, 2500])
+plt.legend()
+```
+
+`loc`는 평균, `scale`은 표준편차에 해당한다. `alpha`를 낮추면 두 histogram이 겹치는 부분을 더 쉽게 볼 수 있다.
+
+정리:
+
+- `axis()`는 그래프의 표시 범위를 조절한다.
+- `label`과 `legend()`는 여러 그래프를 구분할 때 사용한다.
+- `subplots()`와 `GridSpec`은 여러 그래프를 한 figure에 배치할 때 사용한다.
+- `pie()`는 비율, `hist()`는 값의 분포를 볼 때 사용한다.
+- 난수 기반 예제는 실행할 때마다 모양이 달라질 수 있으므로 정확한 수치 결론으로 단정하지 않는다.
+
 ### 공식 참고 문서
 
 - [Pyplot tutorial](https://matplotlib.org/stable/tutorials/pyplot.html)
@@ -662,6 +839,242 @@ y = x ** 2
 - [`matplotlib.pyplot.xlabel`](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.xlabel.html)
 - [`matplotlib.pyplot.ylabel`](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.ylabel.html)
 - [`matplotlib.pyplot.show`](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.show.html)
+
+## pandas
+
+pandas는 표 형태의 데이터를 다루기 위한 Python 라이브러리다. NumPy 배열이 같은 `dtype`의 다차원 수치 계산에 강하다면, pandas는 행과 열 이름을 가진 데이터 분석 흐름에 적합하다.
+
+이번 학습은 다음 자료를 기준으로 확인했다.
+
+- 실습 파일: `pandas/ex_01.ipynb`
+- 데이터 파일: `csv/vehicle_prod.csv`
+- 강의 자료: `references/4_팬다스_KarL.pdf`
+- 실행 환경: Python 3.13.13, NumPy 2.4.5, pandas 3.0.3
+
+### `Series`와 결측치
+
+`Series`는 1차원 데이터에 index를 붙인 자료구조다.
+
+```python
+import pandas as pd
+import numpy as np
+
+se = pd.Series([1, 2, np.nan, 4])
+se
+```
+
+실행 결과:
+
+```text
+0    1.0
+1    2.0
+2    NaN
+3    4.0
+dtype: float64
+```
+
+`np.nan`은 결측치를 나타낸다. 정수처럼 보이는 값과 `NaN`이 함께 들어가면서 `dtype`은 `float64`가 되었다.
+
+결측치 여부는 `isna()`로 확인할 수 있다.
+
+```python
+se.isna()
+```
+
+실행 결과:
+
+```text
+0    False
+1    False
+2     True
+3    False
+dtype: bool
+```
+
+`None`을 넣어도 숫자형 `Series`에서는 결측치로 처리될 수 있다.
+
+```python
+list1 = [1, 2, None, 4]
+se = pd.Series(list1, index=['A', 'B', 'C', 'D'])
+print(se)
+```
+
+실행 결과:
+
+```text
+A    1.0
+B    2.0
+C    NaN
+D    4.0
+dtype: float64
+```
+
+index를 지정하면 기본 정수 index 대신 이름으로 값을 조회할 수 있다.
+
+```python
+se['A']
+```
+
+실행 결과:
+
+```text
+1.0
+```
+
+정리:
+
+- `Series`는 값과 index를 함께 가진다.
+- `NaN`은 결측치이며, `isna()`로 위치를 확인할 수 있다.
+- 결측치가 섞인 숫자 데이터는 실수형으로 변환될 수 있다.
+
+### `DataFrame` 생성과 열 선택
+
+`DataFrame`은 행과 열을 가진 2차원 표 형태의 자료구조다.
+
+```python
+month_se = pd.Series(['1월', '2월', '3월', '4월'])
+income_se = pd.Series([9500, 6200, 6050, 7000])
+expenses_se = pd.Series([5040, 2350, 2300, 4800])
+
+df = pd.DataFrame({
+    '월': month_se,
+    '수익': income_se,
+    '지출': expenses_se,
+})
+df
+```
+
+실행 결과:
+
+```text
+    월    수익    지출
+0  1월  9500  5040
+1  2월  6200  2350
+2  3월  6050  2300
+3  4월  7000  4800
+```
+
+열 이름은 `columns`로 확인할 수 있다.
+
+```python
+(df.columns)[0]
+```
+
+실행 결과:
+
+```text
+'월'
+```
+
+특정 열은 딕셔너리처럼 선택할 수 있다.
+
+```python
+df['수익'][0]
+```
+
+실행 결과:
+
+```text
+9500
+```
+
+실습에서는 `np.argmax()`로 `수익`이 가장 큰 위치를 찾고 해당 값을 조회했다.
+
+```python
+np.argmax(df['수익'])
+df['수익'][np.argmax(df['수익'])]
+```
+
+실행 결과:
+
+```text
+0
+9500
+```
+
+주의할 점:
+
+- `np.argmax(df['수익'])`는 가장 큰 값 자체가 아니라 가장 큰 값의 위치를 반환한다.
+- 이 예제에서는 index가 0부터 순서대로 붙어 있어 위치와 label이 같지만, index가 달라지면 더 명확한 선택 방법이 필요하다.
+- pandas에서는 위치 기반 선택은 `iloc`, label 기반 선택은 `loc`를 구분해서 사용하는 편이 안전하다.
+
+### 기본 통계
+
+`Series`는 기본 통계 메서드를 제공한다.
+
+```python
+income_se.max()
+income_se.min()
+income_se.mean()
+```
+
+실행 결과:
+
+```text
+9500
+6050
+7187.5
+```
+
+`max()`는 최댓값, `min()`은 최솟값, `mean()`은 평균을 구한다. 평균은 전체 수익 합을 데이터 개수로 나눈 값이다.
+
+정리:
+
+- pandas는 열 단위로 데이터를 선택하고 계산할 수 있다.
+- 통계 메서드는 `Series`나 `DataFrame`에 바로 적용할 수 있다.
+- 통계값만 보고 결론을 내리기보다 데이터 개수, 결측치, 단위, 기간을 함께 확인해야 한다.
+
+### CSV 파일 읽기
+
+CSV 파일은 `pd.read_csv()`로 읽을 수 있다.
+
+```python
+file = '../csv/vehicle_prod.csv'
+df = pd.read_csv(file)
+df
+```
+
+실행 결과:
+
+```text
+  Unnamed: 0   2007   2008   2009   2010   2011
+0      China   7.71   7.95  11.96  15.84  16.33
+1         EU  19.02  17.71  15.00  16.70  17.48
+2         US  10.47   8.45   5.58   7.60   8.40
+3      Japan  10.87  10.83   7.55   9.09   7.88
+4      Korea   4.04   3.78   3.45   4.20   4.62
+5     Mexico   2.01   2.05   1.50   2.25   2.54
+```
+
+`vehicle_prod.csv`의 첫 번째 열에는 별도 열 이름이 없어서 pandas가 `Unnamed: 0`이라는 열 이름을 붙였다. 이 열은 국가나 지역 이름을 담고 있다.
+
+확인한 구조:
+
+```text
+shape: (6, 6)
+columns: ['Unnamed: 0', '2007', '2008', '2009', '2010', '2011']
+```
+
+주의할 점:
+
+- CSV의 첫 행이 열 이름으로 해석된다.
+- 열 이름이 비어 있으면 `Unnamed: 0` 같은 이름이 자동으로 붙을 수 있다.
+- 상대 경로는 노트북 실행 위치에 따라 달라질 수 있다.
+- 파일 인코딩이 다르면 한글 데이터가 깨질 수 있으므로 필요하면 `encoding`을 지정한다.
+
+정리:
+
+- pandas 학습의 기본 흐름은 `Series`, `DataFrame`, 열 선택, 통계, 파일 읽기 순서로 시작한다.
+- CSV를 읽은 뒤에는 `shape`, `columns`, 앞부분 데이터, 결측치 여부를 먼저 확인한다.
+- 데이터 분석에서는 표가 읽혔다는 사실보다 각 열이 무엇을 의미하는지 파악하는 것이 중요하다.
+
+### 공식 참고 문서
+
+- [pandas Intro to data structures](https://pandas.pydata.org/docs/user_guide/dsintro.html)
+- [`pandas.Series`](https://pandas.pydata.org/docs/reference/api/pandas.Series.html)
+- [`pandas.DataFrame`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html)
+- [`pandas.isna`](https://pandas.pydata.org/docs/reference/api/pandas.isna.html)
+- [`pandas.read_csv`](https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html)
 
 ## 다음 정리 항목
 
@@ -673,6 +1086,6 @@ y = x ** 2
 - view와 copy
 - 난수 생성
 - 선형대수 기초
-- pandas와 데이터 전처리
-- Matplotlib 그래프 세부 설정
+- pandas 인덱싱과 CSV 전처리
+- Matplotlib 그래프 세부 설정 심화
 - 머신러닝 기본 과정

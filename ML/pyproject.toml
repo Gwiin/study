@@ -6,4 +6,6 @@ dependencies = [
     "ipykernel>=7.3.0",
     "matplotlib==3.10.9",
     "numpy==2.4.5",
+    "pandas==3.0.3",
+    "pandas-stubs~=3.0.3",
 ]
