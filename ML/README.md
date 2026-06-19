@@ -27,18 +27,18 @@ ML/
 ├─ references/
 │  ├─ 1_넘파이_KarL.pdf
 │  ├─ 2_맷플롯립_KarL.pdf
-│  └─ 4_팬다스_KarL.pdf
-├─ csv/
-│  ├─ README.md
-│  ├─ vehicle_prod.csv
-│  └─ ...
+│  ├─ 4_팬다스_KarL.pdf
+│  └─ 고려대학교_Machin_Learning_강의자료.pdf
 ├─ numpy/
 │  └─ ex_01.ipynb
 ├─ matplot/
 │  ├─ ex_01.ipynb
 │  └─ Sine-Cosine.png
-└─ pandas/
-   └─ ex_01.ipynb
+├─ pandas/
+│  └─ ex_01.ipynb
+└─ ml/
+   ├─ ex_01.ipynb
+   └─ titanic.csv
 ```
 
 - `README.md`: ML 과정 전체 학습 정리
@@ -46,10 +46,10 @@ ML/
 - `pyproject.toml`, `uv.lock`: ML 과정에서 공유하는 Python 환경
 - `.venv/`: `uv`가 생성하는 가상환경이며 Git에는 포함하지 않음
 - `references/`: 수업에서 제공된 강의 자료와 참고 문서
-- `csv/`: pandas와 시각화 실습에서 사용하는 CSV 데이터
 - `numpy/`: NumPy 실습 노트북과 예제 코드
 - `matplot/`: Matplotlib 실습 노트북과 예제 코드
 - `pandas/`: pandas 실습 노트북과 예제 코드
+- `ml/`: 머신러닝 기본 실습 노트북과 예제 데이터
 
 NumPy, pandas, matplotlib, scikit-learn은 서로 연계되므로 우선 `ML`에서 하나의 가상환경을 공유한다. 특정 과정에서 의존성 충돌이 생길 때만 별도 프로젝트로 분리한다.
 
@@ -58,6 +58,7 @@ NumPy, pandas, matplotlib, scikit-learn은 서로 연계되므로 우선 `ML`에
 - `references/1_넘파이_KarL.pdf`: NumPy 수업 참고 자료
 - `references/2_맷플롯립_KarL.pdf`: Matplotlib 수업 참고 자료
 - `references/4_팬다스_KarL.pdf`: pandas 수업 참고 자료
+- `references/고려대학교_Machin_Learning_강의자료.pdf`: 머신러닝 수업 참고 자료
 
 README를 정리할 때 강의 자료의 설명 순서와 수업 맥락을 참고한다. 다만 강의 자료의 내용을 그대로 옮기거나 무조건 정답으로 취급하지 않는다. 코드의 실제 실행 결과와 현재 NumPy 공식 문서를 함께 확인하여 잘못되었거나 버전에 따라 달라진 내용은 바로잡는다.
 
@@ -95,6 +96,7 @@ ML\.venv\Scripts\python.exe
 uv add --project ML pandas
 uv add --project ML matplotlib
 uv add --project ML scikit-learn
+uv add --project ML seaborn
 ```
 
 ## 학습 정리 원칙
@@ -847,7 +849,6 @@ pandas는 표 형태의 데이터를 다루기 위한 Python 라이브러리다.
 이번 학습은 다음 자료를 기준으로 확인했다.
 
 - 실습 파일: `pandas/ex_01.ipynb`
-- 데이터 파일: `csv/vehicle_prod.csv`
 - 강의 자료: `references/4_팬다스_KarL.pdf`
 - 실행 환경: Python 3.13.13, NumPy 2.4.5, pandas 3.0.3
 
@@ -1024,49 +1025,179 @@ income_se.mean()
 - 통계 메서드는 `Series`나 `DataFrame`에 바로 적용할 수 있다.
 - 통계값만 보고 결론을 내리기보다 데이터 개수, 결측치, 단위, 기간을 함께 확인해야 한다.
 
-### CSV 파일 읽기
+### 행과 열 기준 집계
 
-CSV 파일은 `pd.read_csv()`로 읽을 수 있다.
+`axis=1`을 사용하면 각 행에서 여러 열을 가로로 계산할 수 있다.
 
 ```python
-file = '../csv/vehicle_prod.csv'
-df = pd.read_csv(file)
-df
+df = pd.DataFrame(
+    {
+        'A': [10, 20, 30],
+        'B': [1, 2, 3],
+    },
+    index=['x', 'y', 'z'],
+)
+
+df['total'] = df.sum(axis=1)
+df['mean'] = df[['A', 'B']].mean(axis=1)
+print(df)
 ```
 
 실행 결과:
 
 ```text
-  Unnamed: 0   2007   2008   2009   2010   2011
-0      China   7.71   7.95  11.96  15.84  16.33
-1         EU  19.02  17.71  15.00  16.70  17.48
-2         US  10.47   8.45   5.58   7.60   8.40
-3      Japan  10.87  10.83   7.55   9.09   7.88
-4      Korea   4.04   3.78   3.45   4.20   4.62
-5     Mexico   2.01   2.05   1.50   2.25   2.54
+    A  B  total  mean
+x  10  1     11   5.5
+y  20  2     22  11.0
+z  30  3     33  16.5
 ```
 
-`vehicle_prod.csv`의 첫 번째 열에는 별도 열 이름이 없어서 pandas가 `Unnamed: 0`이라는 열 이름을 붙였다. 이 열은 국가나 지역 이름을 담고 있다.
+`sum(axis=1)`은 각 행의 값을 더한다. `mean(axis=1)`은 각 행의 평균을 구한다. 특정 열만 계산에 포함하려면 열 목록을 명시하는 편이 안전하다.
 
-확인한 구조:
+열이나 행은 `drop()`으로 제거할 수 있다.
 
-```text
-shape: (6, 6)
-columns: ['Unnamed: 0', '2007', '2008', '2009', '2010', '2011']
+```python
+df_without_a = df.drop('A', axis=1)
+df_without_x = df.drop('x', axis=0)
+```
+
+`axis=1`은 열 삭제, `axis=0`은 행 삭제다. `inplace=True`를 사용하면 원본 `DataFrame`이 직접 바뀐다. 원본을 보존해야 하는 경우에는 새 변수로 결과를 받는다.
+
+`loc`를 사용하면 label 기준으로 새 행을 추가할 수도 있다.
+
+```python
+df.loc['total'] = df.select_dtypes(include='number').sum()
+```
+
+정리:
+
+- `axis=0`은 행 index 방향으로 내려가며 열별 계산을 만든다.
+- `axis=1`은 열 방향으로 가로 계산을 하며 행별 결과를 만든다.
+- 원본이 바뀌는 연산인지, 새 `DataFrame`을 반환하는 연산인지 확인한다.
+
+### pandas 시각화
+
+pandas `DataFrame`과 `Series`는 Matplotlib 기반의 간단한 그래프를 바로 그릴 수 있다.
+
+```python
+df['A'].plot(kind='bar')
+```
+
+`Series.plot(kind='bar')`는 index를 x축으로, 값을 y축으로 사용한다.
+
+```python
+df[['A', 'B']].plot.area()
+```
+
+`DataFrame.plot.area()`는 여러 열의 값을 누적 영역 그래프로 보여준다. 값이 누적되어 보이므로 개별 값 비교에는 막대그래프나 선 그래프가 더 적합할 수 있다.
+
+### 행 선택: slicing, `loc`, `iloc`
+
+앞부분 일부는 `head()`로 확인한다.
+
+```python
+df.head()
+```
+
+행 범위는 slicing으로 선택할 수 있다.
+
+```python
+df[2:4]
+```
+
+`loc`는 label 기반 선택이다.
+
+```python
+df.loc['x']
+df.loc[['x', 'z']]
+```
+
+`iloc`는 위치 기반 선택이다.
+
+```python
+df.iloc[0]
+```
+
+이 예제에서는 `x`가 첫 번째 행이므로 `df.loc['x']`와 `df.iloc[0]`가 같은 값을 보여준다. 하지만 index 순서가 바뀌거나 label이 숫자일 때는 두 방식의 의미가 달라질 수 있다.
+
+정리:
+
+- `loc`는 index label을 기준으로 선택한다.
+- `iloc`는 정수 위치를 기준으로 선택한다.
+- `df[2:4]` 같은 slicing은 행 위치 범위를 가져오지만, 명확한 코드를 위해 `loc`와 `iloc`를 구분해 쓰는 편이 좋다.
+
+### 결측치 처리
+
+결측치가 있는 행은 `isna()`와 `any(axis=1)`로 찾을 수 있다.
+
+```python
+df_missing = pd.DataFrame({
+    'A': [1, 2, np.nan],
+    'B': [10, np.nan, 30],
+})
+
+print(df_missing[df_missing.isna().any(axis=1)])
+```
+
+결측치가 하나라도 있는 행을 제거하려면 `dropna()`를 사용한다.
+
+```python
+clean_df = df_missing.dropna(how='any', axis=0, inplace=False)
 ```
 
 주의할 점:
 
-- CSV의 첫 행이 열 이름으로 해석된다.
-- 열 이름이 비어 있으면 `Unnamed: 0` 같은 이름이 자동으로 붙을 수 있다.
-- 상대 경로는 노트북 실행 위치에 따라 달라질 수 있다.
-- 파일 인코딩이 다르면 한글 데이터가 깨질 수 있으므로 필요하면 `encoding`을 지정한다.
+- `dropna(how='any')`는 결측치가 하나라도 있는 행을 제거한다.
+- 결측치 제거는 간단하지만 데이터가 줄어든다.
+- 머신러닝에서는 결측치를 제거할지, 대체할지, 별도 표시할지 문제와 데이터 양에 따라 결정해야 한다.
+
+### 날짜 변환과 월별 집계
+
+여러 형식의 날짜 문자열은 `DatetimeIndex`로 변환할 수 있다.
+
+```python
+d_list = ['2018-01-11', '2018/01/11', '01/11/2018', '01-11-2018']
+new_d_index = pd.DatetimeIndex(d_list)
+
+print(new_d_index.year)
+print(new_d_index.month)
+print(new_d_index.day)
+```
+
+날짜와 시간이 함께 있으면 시, 분도 꺼낼 수 있다.
+
+```python
+dt_list = ['01,03,2018 11:12:13', '01-03-2018 11:22:13']
+pd.DatetimeIndex(dt_list).hour
+pd.DatetimeIndex(dt_list).minute
+```
+
+날짜 열에서 월 정보를 뽑아 월별 평균을 계산할 수 있다.
+
+```python
+df_time = pd.DataFrame({
+    'date': ['2018-01-03', '2018-01-06', '2018-02-01'],
+    'value': [10, 20, 30],
+})
+
+df_time['month'] = pd.DatetimeIndex(df_time['date']).month
+group1 = df_time.groupby('month')['value'].mean()
+print(group1)
+```
+
+같은 결과를 반복문으로 월별 subset을 만든 뒤 평균을 구할 수도 있지만, pandas에서는 `groupby()`가 더 직접적이다.
+
+```python
+monthly_mean = df_time.groupby('month')['value'].mean()
+monthly_mean.plot(kind='bar')
+```
 
 정리:
 
-- pandas 학습의 기본 흐름은 `Series`, `DataFrame`, 열 선택, 통계, 파일 읽기 순서로 시작한다.
-- CSV를 읽은 뒤에는 `shape`, `columns`, 앞부분 데이터, 결측치 여부를 먼저 확인한다.
-- 데이터 분석에서는 표가 읽혔다는 사실보다 각 열이 무엇을 의미하는지 파악하는 것이 중요하다.
+- 날짜 문자열은 `DatetimeIndex`로 변환하면 `year`, `month`, `day`, `hour`, `minute` 같은 속성을 꺼낼 수 있다.
+- `groupby('month')`는 월별로 데이터를 묶은 뒤 평균 같은 집계를 적용할 수 있다.
+- 반복문으로 직접 나누는 방식보다 `groupby()`가 의도가 더 분명하다.
+- 날짜 형식이 섞여 있으면 pandas가 해석할 수 있는지 확인하고, 애매한 형식은 `format`이나 전처리를 명시하는 것이 안전하다.
 
 ### 공식 참고 문서
 
@@ -1074,7 +1205,262 @@ columns: ['Unnamed: 0', '2007', '2008', '2009', '2010', '2011']
 - [`pandas.Series`](https://pandas.pydata.org/docs/reference/api/pandas.Series.html)
 - [`pandas.DataFrame`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html)
 - [`pandas.isna`](https://pandas.pydata.org/docs/reference/api/pandas.isna.html)
-- [`pandas.read_csv`](https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html)
+- [Indexing and selecting data](https://pandas.pydata.org/docs/user_guide/indexing.html)
+- [`pandas.DataFrame.drop`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.drop.html)
+- [`pandas.DataFrame.dropna`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.dropna.html)
+- [`pandas.DataFrame.groupby`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.groupby.html)
+- [`pandas.DatetimeIndex`](https://pandas.pydata.org/docs/reference/api/pandas.DatetimeIndex.html)
+
+## 머신러닝 기본 실습
+
+이번 실습은 Titanic 데이터를 사용해 결측치 처리, 조건별 집계, 시각화, 상관계수 계산을 확인했다. 아직 모델 학습 단계는 아니며, 머신러닝 전에 데이터를 이해하고 정리하는 탐색 단계다.
+
+이번 학습은 다음 자료를 기준으로 확인했다.
+
+- 실습 파일: `ml/ex_01.ipynb`
+- 데이터 파일: `ml/titanic.csv`
+- 강의 자료: `references/고려대학교_Machin_Learning_강의자료.pdf`
+- 실행 환경: Python 3.13.13, pandas 3.0.3, NumPy 2.4.5, Matplotlib 3.10.9, seaborn 0.13.2
+
+### Titanic 데이터 불러오기와 저장
+
+Seaborn은 예제 데이터셋을 제공한다. Titanic 데이터는 다음처럼 불러왔다.
+
+```python
+import seaborn as sns
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+titanic = sns.load_dataset("titanic")
+titanic.to_csv(path_or_buf="titanic.csv", index=False)
+```
+
+확인한 구조:
+
+```text
+shape: (891, 15)
+columns: survived, pclass, sex, age, sibsp, parch, fare, embarked, class, who, adult_male, deck, embark_town, alive, alone
+```
+
+`survived`는 생존 여부를 0과 1로 나타낸 target에 해당한다. `pclass`, `sex`, `age`, `fare` 같은 열은 생존 여부를 설명하는 feature 후보로 볼 수 있다.
+
+### 결측치 확인과 대체
+
+먼저 열별 결측치 개수를 확인했다.
+
+```python
+print(titanic.isnull().sum())
+```
+
+실행 결과 중 결측치가 있는 열:
+
+```text
+age            177
+embarked         2
+deck           688
+embark_town      2
+```
+
+실습에서는 `age`의 결측치를 중앙값으로 채웠다.
+
+```python
+titanic['age'] = titanic['age'].fillna(value=titanic['age'].median())
+print(titanic['age'].isnull().sum())
+```
+
+실행 결과:
+
+```text
+0
+```
+
+`embarked`는 가장 많이 나온 값인 `S`로 채웠다.
+
+```python
+titanic['embarked'].value_counts()
+titanic['embarked'] = titanic['embarked'].fillna(value='S')
+```
+
+`deck`은 결측치가 688개로 매우 많았다. 실습에서는 최빈값인 `C`로 채웠지만, 결측치 비율이 큰 열은 단순 대체가 분석 결과를 크게 왜곡할 수 있다.
+
+```python
+titanic['deck'].value_counts()
+titanic['deck'] = titanic['deck'].fillna(value='C')
+```
+
+`embark_town`도 결측치를 채웠다.
+
+```python
+titanic['embark_town'].value_counts()
+titanic['embark_town'] = titanic['embark_town'].fillna(value='Cherbourg')
+```
+
+주의할 점:
+
+- 결측치를 평균, 중앙값, 최빈값으로 채우는 것은 편리하지만 항상 정답은 아니다.
+- `deck`처럼 결측치가 대부분인 열은 대체보다 제거하거나 별도 범주로 다루는 방법도 고려해야 한다.
+- 머신러닝에서는 전처리 기준을 학습 데이터에서만 정하고 테스트 데이터에 적용해야 데이터 누수를 막을 수 있다.
+
+### 성별에 따른 생존 여부 확인
+
+조건식으로 남성과 여성 데이터를 나누고 생존 여부를 집계했다.
+
+```python
+titanic['survived'][titanic['sex'] == 'male'].value_counts()
+```
+
+실행 결과:
+
+```text
+survived
+0    468
+1    109
+Name: count, dtype: int64
+```
+
+여성 데이터는 다음처럼 확인했다.
+
+```python
+titanic[titanic['sex'] == 'female']['survived'].value_counts(ascending=True)
+```
+
+실행 결과:
+
+```text
+survived
+0     81
+1    233
+Name: count, dtype: int64
+```
+
+이 데이터에서는 남성보다 여성의 생존 비율이 높게 나타난다. 다만 이는 Titanic 데이터 안에서의 관찰 결과이며, 일반적인 결론으로 확장해서는 안 된다.
+
+### 생존 비율과 객실 등급 시각화
+
+성별 생존 비율은 pie chart로 비교했다.
+
+```python
+(_, ax) = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
+
+titanic['survived'][titanic['sex'] == 'male'].value_counts().plot.pie(
+    explode=[0, 0.1],
+    autopct='%1.1f%%',
+    ax=ax[0],
+    shadow=True,
+)
+
+titanic['survived'][titanic['sex'] == 'female'].value_counts(ascending=True).plot.pie(
+    explode=[0, 0.1],
+    autopct='%1.1f%%',
+    ax=ax[1],
+    shadow=True,
+)
+
+ax[0].set_title('Survived(Male)')
+ax[1].set_title('Survived(Female)')
+plt.show()
+```
+
+객실 등급과 생존 여부는 count plot으로 확인했다.
+
+```python
+sns.countplot(x='pclass', hue='survived', data=titanic)
+plt.show()
+```
+
+`pclass`는 객실 등급이고 `hue='survived'`는 생존 여부별로 막대를 나누어 보여준다. 이런 시각화는 모델을 만들기 전에 feature와 target의 관계를 눈으로 확인하는 데 도움이 된다.
+
+### 상관계수 계산과 문자열 컬럼 오류
+
+상관계수는 두 수치형 변수의 선형 관계를 확인하는 방법이다. 실습에서는 전체 `DataFrame`에 바로 `corr()`를 적용하면서 오류가 발생했다.
+
+```python
+titanic_correlation_analysis = titanic.corr(method='pearson')
+```
+
+오류 핵심:
+
+```text
+ValueError: could not convert string to float: 'male'
+```
+
+원인은 `sex`, `embarked`, `class`, `who`, `alive`처럼 문자열이나 범주형 값이 들어 있는 열까지 상관계수 계산에 포함되었기 때문이다. pandas 3.0.3에서 `DataFrame.corr()`의 기본값은 `numeric_only=False`이므로 문자열 열을 숫자로 변환하려다 실패한다.
+
+숫자형 열만 대상으로 계산하면 된다.
+
+```python
+titanic_correlation_analysis = titanic.corr(
+    method='pearson',
+    numeric_only=True,
+)
+```
+
+또는 명시적으로 숫자 열만 고를 수 있다.
+
+```python
+numeric_titanic = titanic.select_dtypes(include='number')
+titanic_correlation_analysis = numeric_titanic.corr(method='pearson')
+```
+
+개별 열끼리의 상관계수도 확인했다.
+
+```python
+titanic['survived'].corr(other=titanic['adult_male'], method='pearson')
+```
+
+실행 결과:
+
+```text
+-0.5570800422053258
+```
+
+`survived`와 `adult_male`은 음의 상관관계를 보였다. 이 값은 `adult_male`이 `True`인 경우 생존 값이 낮아지는 경향이 있다는 뜻이다.
+
+```python
+titanic['survived'].corr(other=titanic['fare'], method='pearson')
+```
+
+실행 결과:
+
+```text
+0.2573065223849622
+```
+
+`fare`와 `survived`는 약한 양의 상관관계를 보였다. 요금이 높을수록 생존 값이 커지는 경향이 있지만, 상관계수만으로 원인이라고 단정할 수는 없다.
+
+정리:
+
+- `corr()`는 숫자형 데이터에 대해 계산해야 한다.
+- 문자열 범주형 feature는 그대로 상관계수 계산에 넣을 수 없다.
+- `numeric_only=True` 또는 `select_dtypes(include='number')`로 숫자 열만 고른다.
+- 상관관계는 선형 관계의 정도이지 인과관계를 증명하지 않는다.
+
+### Pair plot
+
+`pairplot()`은 여러 수치형 변수 간 관계를 한 번에 확인하는 시각화다.
+
+```python
+sns.pairplot(data=titanic, hue='survived')
+plt.show()
+```
+
+`hue='survived'`를 지정하면 생존 여부에 따라 색을 나누어 표시한다. 변수 간 분포와 대략적인 구분 가능성을 빠르게 볼 수 있지만, feature가 많으면 그래프가 커지고 해석이 복잡해진다.
+
+정리:
+
+- Titanic 실습은 분류 문제의 탐색 단계로 볼 수 있다.
+- target은 `survived`이고, 나머지 열은 feature 후보가 된다.
+- 결측치 처리, 범주형 데이터 처리, 시각화, 상관관계 확인은 모델 학습 전 중요한 준비 과정이다.
+- 실제 모델 학습 전에는 train/test 분리와 전처리 기준의 데이터 누수 여부를 반드시 확인해야 한다.
+
+### 공식 참고 문서
+
+- [seaborn.load_dataset](https://seaborn.pydata.org/generated/seaborn.load_dataset.html)
+- [seaborn.countplot](https://seaborn.pydata.org/generated/seaborn.countplot.html)
+- [seaborn.pairplot](https://seaborn.pydata.org/generated/seaborn.pairplot.html)
+- [`pandas.DataFrame.corr`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.corr.html)
+- [`pandas.Series.corr`](https://pandas.pydata.org/docs/reference/api/pandas.Series.corr.html)
 
 ## 다음 정리 항목
 
@@ -1088,4 +1474,5 @@ columns: ['Unnamed: 0', '2007', '2008', '2009', '2010', '2011']
 - 선형대수 기초
 - pandas 인덱싱과 CSV 전처리
 - Matplotlib 그래프 세부 설정 심화
-- 머신러닝 기본 과정
+- train/test 분리와 모델 학습
+- 범주형 데이터 인코딩
