@@ -1462,6 +1462,197 @@ plt.show()
 - [`pandas.DataFrame.corr`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.corr.html)
 - [`pandas.Series.corr`](https://pandas.pydata.org/docs/reference/api/pandas.Series.corr.html)
 
+## 선형회귀와 모델 학습
+
+이번 실습은 scikit-learn의 `LinearRegression`으로 입력값과 target 사이의 직선 관계를 학습하는 흐름을 확인했다. 앞의 Titanic 실습이 모델 학습 전 탐색 단계였다면, 이번 내용은 실제 모델을 만들고 예측값을 확인하는 첫 단계다.
+
+이번 학습은 다음 자료를 기준으로 확인했다.
+
+- 실습 파일: `ml/ex_02.ipynb`, `ml/ex_03.ipynb`
+- 데이터 파일: scikit-learn `load_diabetes()` 예제 데이터
+- 실행 환경: Python 3.13.13, scikit-learn 1.8.0, NumPy 2.4.5, Matplotlib 3.10.9
+
+### 가장 단순한 선형회귀
+
+`LinearRegression`은 feature와 target의 관계를 직선 형태로 학습한다. 입력 `X`는 2차원 형태로 전달하고, `y`는 예측하려는 값이다.
+
+```python
+from sklearn import linear_model
+
+reg = linear_model.LinearRegression()
+
+X = [[0], [1], [2]]
+y = [[3], [4], [5]]
+
+reg.fit(X, y)
+print(reg.coef_)
+print(reg.intercept_)
+print(reg.predict([[-4]]))
+print(reg.predict([[5]]))
+```
+
+실행 결과:
+
+```text
+coef: [[1.]]
+intercept: [3.]
+predict([[-4]]): [[-1.]]
+predict([[5]]): [[8.]]
+```
+
+이 예제에서 모델은 `y = 1 * x + 3` 형태의 관계를 학습했다. 그래서 `x=-4`이면 `-1`, `x=5`이면 `8`을 예측한다.
+
+정리:
+
+- `fit(X, y)`는 feature와 target의 관계를 학습한다.
+- `coef_`는 기울기, `intercept_`는 절편이다.
+- `predict()`에는 학습 때와 같은 2차원 입력 형태를 맞춰야 한다.
+- 학습 데이터가 3개뿐이므로 이 결과를 일반화된 성능으로 해석하면 안 된다.
+
+### 키와 몸무게 예측 예제
+
+키를 feature, 몸무게를 target으로 두고 단순 선형회귀를 적용했다.
+
+```python
+X = [[174], [152], [138], [128], [186]]
+y = [71, 55, 46, 38, 88]
+
+reg.fit(X, y)
+print(reg.predict([[165]]))
+print(reg.coef_)
+print(reg.intercept_)
+```
+
+실행 결과:
+
+```text
+predict([[165]]): [67.30998637]
+coef: [0.82021132]
+intercept: -68.0248807089298
+```
+
+학습된 직선은 대략 `몸무게 = 0.8202 * 키 - 68.0249`로 볼 수 있다. 이 모델은 키가 165일 때 몸무게를 약 `67.31`로 예측했다.
+
+주의할 점:
+
+- 표본이 5개뿐이라 예측값은 학습 흐름을 확인하는 용도로만 봐야 한다.
+- 키 하나만으로 몸무게를 설명한다고 단정할 수 없다.
+- `ex_02.ipynb`의 `y1 = 0.82 * x - 68.02` 셀은 현재 노트북을 처음부터 다시 실행하면 `x`가 정의되어 있지 않아 오류가 날 수 있다. 앞에서 만든 `x1`을 사용하려면 `y1 = 0.82 * x1 - 68.02`처럼 맞춰야 한다.
+
+### Diabetes 데이터와 train/test 분리
+
+`load_diabetes()` 데이터는 442명의 환자에 대해 10개 feature와 1년 뒤 질병 진행 정도를 나타내는 target을 제공한다. target이 연속적인 수치이므로 회귀 문제다.
+
+```python
+from sklearn import datasets
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+import numpy as np
+
+diabete = datasets.load_diabetes()
+
+X = diabete['data']
+y = diabete['target']
+
+print(X.shape)
+print(y.shape)
+```
+
+실행 결과:
+
+```text
+X: (442, 10)
+y: (442,)
+```
+
+전체 feature 중 세 번째 열인 `bmi`만 꺼내 단순 회귀 입력으로 사용했다.
+
+```python
+bmi = X[:, 2]
+X_new = X[:, np.newaxis, 2]
+
+print(bmi.shape)
+print(X_new.shape)
+```
+
+확인 결과:
+
+```text
+bmi: (442,)
+X_new: (442, 1)
+```
+
+`bmi`는 1차원 배열이고, `X_new`는 scikit-learn 모델 입력에 맞춘 2차원 배열이다. `np.newaxis`를 사용해 sample 수는 유지하고 feature 축을 하나 추가했다.
+
+학습 데이터와 테스트 데이터를 나눴다.
+
+```python
+X_train, X_test, y_train, y_test = train_test_split(
+    X_new,
+    y,
+    test_size=0.1,
+    random_state=0,
+)
+
+print(X_train.shape)
+print(y_train.shape)
+print(X_test.shape)
+print(y_test.shape)
+```
+
+실행 결과:
+
+```text
+X_train: (397, 1)
+y_train: (397,)
+X_test: (45, 1)
+y_test: (45,)
+```
+
+`test_size=0.1`은 전체 데이터의 10%를 테스트 데이터로 분리한다. `random_state=0`은 같은 분할을 재현하기 위한 값이며, 성능을 보장하는 값은 아니다.
+
+### 학습과 예측값 비교
+
+분리한 학습 데이터로 모델을 학습하고 테스트 데이터에 대해 예측했다.
+
+```python
+regression = LinearRegression()
+regression.fit(X_train, y_train)
+
+y_pred = regression.predict(X_test)
+
+print(regression.coef_)
+print(regression.intercept_)
+print(y_pred[:5])
+print(y_test[:5])
+```
+
+실행 결과:
+
+```text
+coef: [966.7269242]
+intercept: 151.20933147606175
+pred_first5: [252.53071348 209.81076549 159.79716784 128.53866931 195.22346617]
+y_first5: [321. 215. 127.  64. 175.]
+```
+
+예측값과 실제값을 나란히 보면 완전히 같지 않다. 이 실습에서는 train/test 분리와 예측 흐름을 확인했지만, 아직 MAE, MSE, RMSE, R² 같은 평가 지표를 계산하지 않았다. 따라서 모델 성능이 좋다고 말할 수는 없다.
+
+정리:
+
+- `load_diabetes()` 실습은 회귀 문제다.
+- feature는 `X`, target은 `y`로 분리한다.
+- scikit-learn의 입력 `X`는 보통 `(sample 수, feature 수)` 형태의 2차원 배열이어야 한다.
+- `train_test_split()`으로 학습 데이터와 테스트 데이터를 나누고, 모델은 학습 데이터에만 `fit()`한다.
+- 테스트 데이터는 학습에 사용하지 않고, 학습 후 예측과 평가에 사용한다.
+- 평가 지표를 계산하기 전에는 예측값 몇 개만 보고 성능을 단정하면 안 된다.
+
+### 공식 참고 문서
+
+- [`sklearn.linear_model.LinearRegression`](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html)
+- [`sklearn.datasets.load_diabetes`](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_diabetes.html)
+- [`sklearn.model_selection.train_test_split`](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
+
 ## 다음 정리 항목
 
 실습 진행에 따라 아래 주제를 순서대로 추가한다.
@@ -1474,5 +1665,5 @@ plt.show()
 - 선형대수 기초
 - pandas 인덱싱과 CSV 전처리
 - Matplotlib 그래프 세부 설정 심화
-- train/test 분리와 모델 학습
+- 회귀 모델 평가 지표
 - 범주형 데이터 인코딩
