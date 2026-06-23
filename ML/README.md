@@ -1653,6 +1653,413 @@ y_first5: [321. 215. 127.  64. 175.]
 - [`sklearn.datasets.load_diabetes`](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_diabetes.html)
 - [`sklearn.model_selection.train_test_split`](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 
+## KNN 분류와 모델 평가
+
+이번 실습은 회귀가 아니라 분류 문제를 다뤘다. `KNeighborsClassifier`를 사용해 Iris 품종, 손글씨 숫자, 강아지 품종을 예측했고, 예측 결과를 `accuracy_score`, `confusion_matrix`, `classification_report`로 확인했다.
+
+이번 학습은 다음 자료를 기준으로 확인했다.
+
+- 실습 파일: `ml/ex_04.ipynb`, `ml/ex_05.ipynb`, `ml/project01.ipynb`
+- 데이터 파일: scikit-learn `load_iris()`, `load_digits()` 예제 데이터, 직접 만든 닥스훈트/사모예드 길이와 키 데이터
+- 실행 환경: Python 3.13.13, scikit-learn 1.8.0, NumPy 2.4.5, Matplotlib 3.10.9
+
+### Iris 데이터와 KNN 분류
+
+`load_iris()` 데이터는 붓꽃 150개 sample에 대해 꽃받침과 꽃잎의 길이, 너비 4개 feature를 제공한다. target은 `setosa`, `versicolor`, `virginica` 세 품종이다.
+
+```python
+from sklearn import datasets
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn import metrics
+
+iris = datasets.load_iris()
+
+X = iris.data
+y = iris.target
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=4,
+)
+
+print(X_train.shape)
+print(y_train.shape)
+print(X_test.shape)
+print(y_test.shape)
+```
+
+실행 결과:
+
+```text
+X_train: (120, 4)
+y_train: (120,)
+X_test: (30, 4)
+y_test: (30,)
+```
+
+전체 150개 중 80%인 120개는 학습에 사용하고, 20%인 30개는 테스트에 사용했다. feature가 4개이므로 `X_train`의 shape는 `(120, 4)`가 된다.
+
+```python
+knn = KNeighborsClassifier(n_neighbors=6)
+knn.fit(X_train, y_train)
+
+y_pred = knn.predict(X_test)
+score = metrics.accuracy_score(y_test, y_pred)
+print(score)
+```
+
+실행 결과:
+
+```text
+0.9666666666666667
+```
+
+이 정확도는 테스트 데이터 30개 중 약 96.7%를 맞췄다는 뜻이다. 테스트 데이터가 30개뿐이므로 1개를 틀리면 정확도는 약 `0.0333`씩 변한다.
+
+새로운 입력 2개도 예측했다.
+
+```python
+classes = {
+    0: 'setosa',
+    1: 'versicolor',
+    2: 'virginica',
+}
+
+x_new = [[3, 4, 5, 2], [5, 4, 2, 2]]
+y_predict = knn.predict(x_new)
+
+print(classes[y_predict[0]])
+print(classes[y_predict[1]])
+```
+
+실행 결과:
+
+```text
+versicolor
+setosa
+```
+
+분류 결과를 더 자세히 보기 위해 confusion matrix도 확인했다.
+
+```python
+from sklearn.metrics import confusion_matrix
+
+confusion = confusion_matrix(y_test, y_pred)
+print(confusion)
+```
+
+실행 결과:
+
+```text
+[[16  0  0]
+ [ 0  4  1]
+ [ 0  0  9]]
+```
+
+첫 번째 품종은 16개를 모두 맞췄고, 두 번째 품종은 5개 중 1개를 세 번째 품종으로 잘못 예측했다. 세 번째 품종은 9개를 모두 맞췄다.
+
+정리:
+
+- Iris 데이터는 3개 품종을 맞히는 다중 분류 문제다.
+- `KNeighborsClassifier(n_neighbors=6)`은 가까운 이웃 6개를 기준으로 class를 결정한다.
+- `accuracy_score`는 전체 테스트 데이터 중 맞춘 비율을 보여준다.
+- `confusion_matrix`는 어떤 class를 어떤 class로 잘못 예측했는지 확인하는 데 유용하다.
+
+### Digits 손글씨 숫자 분류
+
+`load_digits()` 데이터는 8x8 손글씨 숫자 이미지와 정답 숫자를 제공한다. 각 이미지는 8x8 픽셀이고, 모델 입력에는 64개 feature로 펼쳐진 `digits.data`를 사용한다.
+
+```python
+from sklearn import datasets, metrics
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
+
+digits = datasets.load_digits()
+
+data = digits.data
+target = digits.target
+
+print(data.shape)
+print(target.shape)
+```
+
+실행 결과:
+
+```text
+data: (1797, 64)
+target: (1797,)
+```
+
+`digits.images`는 이미지 형태인 `(8, 8)` 배열이고, `digits.data`는 모델에 넣기 쉽게 64개 값으로 펼친 데이터다.
+
+```python
+plt.imshow(digits['images'][0], cmap=plt.cm.gray_r)
+```
+
+첫 번째 이미지를 보면 숫자 하나가 8x8 밝기 값으로 표현되어 있다. 밝기 값 배열은 이미지로 볼 수도 있고, 64개 feature로 펼쳐 KNN에 넣을 수도 있다.
+
+```python
+X_train, X_test, y_train, y_test = train_test_split(
+    data,
+    target,
+    train_size=0.8,
+)
+
+knn = KNeighborsClassifier()
+knn.fit(X_train, y_train)
+
+y_predict = knn.predict(X_test)
+
+print(y_predict[:10])
+print(y_test[:10])
+```
+
+저장된 실행 결과:
+
+```text
+y_predict[:10]: [3 9 0 4 2 3 1 9 4 7]
+y_test[:10]:    [3 9 0 4 2 3 1 9 4 7]
+```
+
+앞의 10개 예측은 실제값과 같았다. 전체 테스트 정확도도 계산했다.
+
+```python
+score = accuracy_score(y_test, y_predict)
+print(score)
+```
+
+저장된 실행 결과:
+
+```text
+0.9833333333333333
+```
+
+`train_test_split()`에 `random_state`를 지정하지 않았으므로 실행할 때마다 학습/테스트 데이터가 달라지고 정확도도 달라질 수 있다. 이 실습에서는 그 변동을 직접 확인할 수 있다.
+
+특정 테스트 이미지를 다시 8x8로 바꿔 확인했다.
+
+```python
+plt.imshow(X_test[10].reshape(8, -1), cmap=plt.cm.gray_r)
+plt.show()
+
+print(y_test[10])
+```
+
+실행 결과:
+
+```text
+7
+```
+
+`X_test[10]`은 64개 feature로 펼쳐진 상태이므로, 이미지를 보려면 `reshape(8, -1)`로 다시 8x8 형태를 만들어야 한다.
+
+분류 결과는 confusion matrix와 classification report로도 확인했다.
+
+```python
+from sklearn.metrics import ConfusionMatrixDisplay
+
+ConfusionMatrixDisplay.from_estimator(knn, X_test, y_test)
+plt.show()
+
+print(metrics.classification_report(y_test, knn.predict(X_test)))
+```
+
+정리:
+
+- Digits 데이터는 0부터 9까지 숫자를 맞히는 다중 분류 문제다.
+- 이미지 데이터도 모델 입력에는 숫자 feature 배열로 들어간다.
+- `digits.images`는 시각화에 좋고, `digits.data`는 모델 학습에 바로 쓰기 좋다.
+- `classification_report`는 class별 precision, recall, f1-score를 함께 보여준다.
+
+### 닥스훈트와 사모예드 분류 프로젝트
+
+`project01.ipynb`는 직접 만든 닥스훈트와 사모예드 데이터를 사용한 KNN 분류 실습이다. 길이와 키를 feature로 사용하고, 닥스훈트는 `0`, 사모예드는 `1`로 라벨을 만들었다.
+
+```python
+dach_length = [77, 78, 85, 83, 73, 77, 73, 80]
+dach_height = [25, 28, 29, 30, 21, 22, 17, 35]
+
+samo_length = [75, 77, 86, 86, 79, 83, 83, 88]
+samo_height = [56, 57, 50, 53, 60, 53, 49, 61]
+```
+
+각 품종은 길이 8개, 키 8개를 가진다. 두 feature를 하나의 2차원 배열로 묶었다.
+
+```python
+dach_data = np.column_stack((dach_length, dach_height))
+samo_data = np.column_stack((samo_length, samo_height))
+
+dach_target = [0] * 8
+samo_target = [1] * 8
+
+dogs = np.concatenate((dach_data, samo_data))
+labels = np.concatenate((dach_target, samo_target))
+
+print(dogs.shape)
+print(labels.shape)
+```
+
+실행 결과:
+
+```text
+dogs: (16, 2)
+labels: (16,)
+```
+
+처음에는 원본 16개 데이터만으로 KNN을 학습했다.
+
+```python
+knn = KNeighborsClassifier(3)
+knn.fit(dogs, labels)
+
+unknown_dog = [[79, 35]]
+print(knn.predict(unknown_dog))
+```
+
+실행 결과:
+
+```text
+[0]
+```
+
+`[79, 35]`는 닥스훈트 class인 `0`으로 예측되었다.
+
+이후에는 각 품종의 길이와 키 평균을 기준으로 정규분포 난수 데이터를 만들었다.
+
+```python
+dach_length_mean = sum(dach_length) / len(dach_length)
+dach_height_mean = sum(dach_height) / len(dach_height)
+samo_length_mean = sum(samo_length) / len(samo_length)
+samo_height_mean = sum(samo_height) / len(samo_height)
+
+print(dach_length_mean)
+print(dach_height_mean)
+print(samo_length_mean)
+print(samo_height_mean)
+```
+
+실행 결과:
+
+```text
+78.25
+25.875
+82.125
+54.875
+```
+
+평균값을 `loc`으로 두고, 표준편차는 `scale=5.0`으로 두어 품종별 200개 데이터를 생성했다.
+
+```python
+new_dach_length = np.random.normal(loc=78.25, scale=5.0, size=(200,))
+new_dach_height = np.random.normal(loc=25.875, scale=5.0, size=(200,))
+
+new_samo_length = np.random.normal(loc=82.125, scale=5.0, size=(200,))
+new_samo_height = np.random.normal(loc=54.875, scale=5.0, size=(200,))
+
+new_dach_data = np.column_stack((new_dach_length, new_dach_height))
+new_samo_data = np.column_stack((new_samo_length, new_samo_height))
+
+print(new_dach_data.shape)
+print(new_samo_data.shape)
+```
+
+실행 결과:
+
+```text
+new_dach_data: (200, 2)
+new_samo_data: (200, 2)
+```
+
+두 품종 데이터를 합치면 총 400개 sample이 된다.
+
+```python
+new_dogs = np.concatenate((new_dach_data, new_samo_data))
+
+new_dach_target = [0] * 200
+new_samo_target = [1] * 200
+new_labels = np.concatenate((new_dach_target, new_samo_target))
+
+print(new_dogs.shape)
+print(new_labels.shape)
+```
+
+실행 결과:
+
+```text
+new_dogs: (400, 2)
+new_labels: (400,)
+```
+
+전체 데이터의 80%를 학습에 사용하고 20%를 테스트에 사용했다.
+
+```python
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(
+    new_dogs,
+    new_labels,
+    train_size=0.8,
+)
+
+print(X_train.shape)
+print(y_train.shape)
+print(X_test.shape)
+print(y_test.shape)
+```
+
+실행 결과:
+
+```text
+X_train: (320, 2)
+y_train: (320,)
+X_test: (80, 2)
+y_test: (80,)
+```
+
+KNN으로 학습하고 테스트 데이터의 정확도를 확인했다.
+
+```python
+knn = KNeighborsClassifier(5)
+knn.fit(X_train, y_train)
+
+y_predict = knn.predict(X_test)
+
+score = accuracy_score(y_test, y_predict)
+print(score)
+```
+
+저장된 실행 결과:
+
+```text
+1.0
+```
+
+다시 실행했을 때는 난수 데이터와 train/test 분할이 달라질 수 있으므로 정확도도 달라진다. 실제 재검증에서는 `0.9875`가 나왔다. 이는 seed를 고정하지 않고 매번 새 데이터를 만들도록 한 의도된 동작이다.
+
+정리:
+
+- 길이와 키 2개 feature로 닥스훈트와 사모예드를 분류했다.
+- 원본 데이터는 품종별 8개씩 총 16개다.
+- 평균을 기준으로 `np.random.normal()`을 사용해 품종별 200개 synthetic data를 만들었다.
+- 전체 400개 중 320개는 학습, 80개는 테스트에 사용했다.
+- `random_state`를 고정하지 않았기 때문에 실행할 때마다 정확도는 달라질 수 있다.
+- 이 프로젝트는 데이터 생성, 라벨 생성, train/test 분리, KNN 학습, 정확도 확인까지 분류 모델의 기본 흐름을 한 번에 확인하는 실습이다.
+
+### 공식 참고 문서
+
+- [`sklearn.datasets.load_iris`](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_iris.html)
+- [`sklearn.datasets.load_digits`](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_digits.html)
+- [`sklearn.neighbors.KNeighborsClassifier`](https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html)
+- [`sklearn.metrics.accuracy_score`](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html)
+- [`sklearn.metrics.confusion_matrix`](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.confusion_matrix.html)
+- [`sklearn.metrics.classification_report`](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.classification_report.html)
+- [`numpy.random.normal`](https://numpy.org/doc/stable/reference/random/generated/numpy.random.normal.html)
+
 ## 다음 정리 항목
 
 실습 진행에 따라 아래 주제를 순서대로 추가한다.
@@ -1667,3 +2074,5 @@ y_first5: [321. 215. 127.  64. 175.]
 - Matplotlib 그래프 세부 설정 심화
 - 회귀 모델 평가 지표
 - 범주형 데이터 인코딩
+- 분류 모델의 `n_neighbors` 변화 비교
+- 학습 데이터 크기와 정확도 변화 비교
