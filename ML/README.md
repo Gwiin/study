@@ -38,7 +38,21 @@ ML/
 │  └─ ex_01.ipynb
 └─ ml/
    ├─ ex_01.ipynb
-   └─ titanic.csv
+   ├─ ex_02.ipynb
+   ├─ ex_03.ipynb
+   ├─ ex_04.ipynb
+   ├─ ex_05.ipynb
+   ├─ ex_06.ipynb
+   ├─ ex_07.ipynb
+   ├─ ex_08.ipynb
+   ├─ project01.ipynb
+   ├─ titanic.csv
+   ├─ MNIST_20260626_15_30.keras
+   ├─ digit3.png
+   ├─ digit4.png
+   ├─ digit4_2.png
+   ├─ digit5.png
+   └─ digit9.png
 ```
 
 - `README.md`: ML 과정 전체 학습 정리
@@ -49,7 +63,7 @@ ML/
 - `numpy/`: NumPy 실습 노트북과 예제 코드
 - `matplot/`: Matplotlib 실습 노트북과 예제 코드
 - `pandas/`: pandas 실습 노트북과 예제 코드
-- `ml/`: 머신러닝 기본 실습 노트북과 예제 데이터
+- `ml/`: 머신러닝 기본 실습 노트북, 예제 데이터, 저장된 모델, 직접 그린 숫자 이미지
 
 NumPy, pandas, matplotlib, scikit-learn은 서로 연계되므로 우선 `ML`에서 하나의 가상환경을 공유한다. 특정 과정에서 의존성 충돌이 생길 때만 별도 프로젝트로 분리한다.
 
@@ -2060,6 +2074,319 @@ print(score)
 - [`sklearn.metrics.classification_report`](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.classification_report.html)
 - [`numpy.random.normal`](https://numpy.org/doc/stable/reference/random/generated/numpy.random.normal.html)
 
+## 퍼셉트론과 신경망 기초
+
+이번 실습은 퍼셉트론의 가중치 갱신 과정을 직접 구현하고, scikit-learn과 Keras로 같은 흐름을 더 높은 수준의 API에서 확인했다. 앞의 KNN은 이웃 데이터와의 거리로 분류했다면, 이번 내용은 입력값과 가중치의 곱을 이용해 예측값을 만들고 오차에 따라 가중치를 조정하는 방식이다.
+
+이번 학습은 다음 자료를 기준으로 확인했다.
+
+- 실습 파일: `ml/ex_06.ipynb`, `ml/ex_07.ipynb`
+- 실행 환경: Python 3.13.13, NumPy 2.4.5, scikit-learn 1.8.0, TensorFlow 2.20.0
+
+### AND 문제와 직접 구현한 퍼셉트론
+
+`ex_06.ipynb`에서는 AND 연산을 분류 문제로 만들었다. 입력 두 개에 bias 역할을 하는 `1`을 붙여 3개 feature로 사용했다.
+
+```python
+X = np.array([
+    [0, 0, 1],
+    [0, 1, 1],
+    [1, 0, 1],
+    [1, 1, 1],
+])
+
+y = np.array([0, 0, 0, 1])
+W = np.zeros(len(X[0]))
+```
+
+확인할 내용:
+
+- `X.shape`는 `(4, 3)`으로 볼 수 있다.
+- 앞의 두 값은 실제 입력이고, 마지막 `1`은 bias를 가중치 안에서 함께 학습하기 위한 상수 입력이다.
+- `y`는 AND의 정답이므로 두 입력이 모두 1일 때만 `1`이다.
+- `W`는 입력 feature 수와 같은 길이의 가중치 벡터다.
+
+퍼셉트론은 입력과 가중치의 내적을 계산한 뒤, 계단 함수로 0 또는 1을 출력한다.
+
+```python
+epsilon = 0.0000001
+
+def step_func(t):
+    if t > epsilon:
+        return 1
+    else:
+        return 0
+```
+
+학습에서는 예측값과 정답의 차이를 `error`로 계산하고, 학습률 `eta`를 곱해 가중치를 수정했다.
+
+```python
+def perceptron_fit(X, Y, epochs=10):
+    global W
+    eta = 0.2
+
+    for t in range(epochs):
+        for i in range(len(X)):
+            predict = step_func(np.dot(X[i], W))
+            error = Y[i] - predict
+            W += eta * error * X[i]
+```
+
+저장된 출력에서는 처음에는 `[1, 1, 1]`도 `0`으로 예측하지만, epoch가 진행되면서 가중치가 바뀌고 마지막에는 AND 결과를 맞히는 흐름을 확인했다. 예를 들어 학습 중 가중치는 `[0.4, 0.2, -0.4]` 같은 값으로 변했다.
+
+주의할 점:
+
+- 이 구현은 `global W`를 사용하므로 같은 노트북에서 다시 학습하면 이전 가중치 상태의 영향을 받을 수 있다.
+- 입력 데이터 순서와 초기 가중치, 학습률에 따라 중간 가중치 변화는 달라질 수 있다.
+- 단층 퍼셉트론은 AND처럼 선형 분리 가능한 문제에는 적합하지만 XOR처럼 선형 분리되지 않는 문제는 한 층만으로 해결하기 어렵다.
+
+같은 AND 문제를 scikit-learn의 `Perceptron`으로도 확인했다.
+
+```python
+from sklearn.linear_model import Perceptron
+
+X = [[0, 0], [0, 1], [1, 0], [1, 1]]
+y = [0, 0, 0, 1]
+
+ann = Perceptron()
+ann.fit(X, y)
+print(ann.predict(X))
+```
+
+실행 결과:
+
+```text
+[0 0 0 1]
+```
+
+정리:
+
+- 퍼셉트론은 `입력과 가중치의 내적 -> 활성화 함수 -> 예측` 순서로 동작한다.
+- 오차가 있으면 `W += 학습률 * 오차 * 입력` 형태로 가중치를 갱신한다.
+- bias를 별도 절편으로 두지 않고 입력에 항상 `1`인 값을 추가해 함께 학습할 수 있다.
+- scikit-learn의 `Perceptron`은 직접 작성한 학습 루프를 API로 감싼 형태로 이해할 수 있다.
+
+### Keras MLP와 XOR 학습
+
+`ex_07.ipynb`에서는 TensorFlow/Keras를 사용해 작은 다층 퍼셉트론을 만들었다. 입력층은 2개 값을 받고, 은닉층은 32개 뉴런, 출력층은 1개 뉴런으로 구성했다.
+
+```python
+import keras
+
+mlp = keras.models.Sequential()
+mlp.add(keras.layers.Input(shape=(2,)))
+mlp.add(keras.layers.Dense(32, activation='sigmoid'))
+mlp.add(keras.layers.Dense(1, activation='sigmoid'))
+mlp.summary()
+```
+
+저장된 모델 요약:
+
+```text
+Total params: 129
+Trainable params: 129
+```
+
+입력 데이터는 XOR에 가까운 형태다.
+
+```python
+x = tf.constant([[0, 0], [0, 1], [0, 1], [1, 1]])
+y = tf.constant([0, 1, 1, 0])
+
+mlp.compile(loss='mse', optimizer='adam')
+mlp.fit(x, y, epochs=1000)
+print(mlp.predict(x))
+```
+
+저장된 예측 결과:
+
+```text
+[[0.0651931 ]
+ [0.93118113]
+ [0.93118113]
+ [0.07185799]]
+```
+
+출력층의 activation이 `sigmoid`이므로 결과는 0과 1 사이의 확률처럼 해석할 수 있다. 위 결과는 `[0, 1, 1, 0]`에 가까워졌으므로 작은 데이터에 대해서는 학습이 된 상태로 볼 수 있다.
+
+주의할 점:
+
+- `x`에는 `[1, 0]` 입력이 없고 `[0, 1]`이 두 번 들어 있다. 일반적인 XOR 전체 입력을 모두 확인하려면 `[[0, 0], [0, 1], [1, 0], [1, 1]]`로 구성해야 한다.
+- `epochs=1000`은 같은 작은 데이터에 여러 번 반복 학습하는 설정이다. 학습 데이터에 잘 맞는다는 것과 새로운 데이터에 일반화된다는 것은 다르다.
+- 이진 분류에서는 `mse`도 동작은 하지만, 보통은 출력 activation과 target 형태에 맞춰 `binary_crossentropy` 같은 손실도 함께 검토한다.
+
+정리:
+
+- 단층 퍼셉트론으로 어려운 문제도 은닉층을 추가한 MLP로 학습할 수 있다.
+- `Input(shape=(2,))`는 sample 하나가 feature 2개를 가진다는 뜻이다.
+- `Dense(32)`의 parameter 수는 입력 2개와 bias 1개가 32개 뉴런에 연결되어 `3 * 32 = 96`개가 된다.
+- 마지막 `Dense(1)`은 은닉층 32개 출력과 bias 1개가 연결되어 `33`개 parameter를 가진다.
+
+## MNIST 숫자 분류와 저장 모델 사용
+
+이번 실습은 TensorFlow/Keras의 MNIST 데이터셋으로 손글씨 숫자 분류 모델을 학습하고, 저장한 모델과 직접 만든 숫자 이미지로 예측 흐름을 확인했다.
+
+이번 학습은 다음 자료를 기준으로 확인했다.
+
+- 실습 파일: `ml/ex_08.ipynb`
+- 데이터 파일: Keras MNIST 데이터셋, `ml/digit3.png`, `ml/digit4.png`, `ml/digit4_2.png`, `ml/digit5.png`, `ml/digit9.png`
+- 저장 모델: `ml/MNIST_20260626_15_30.keras`
+- 실행 환경: Python 3.13.13, TensorFlow 2.20.0, OpenCV 4.13.0.92
+
+### MNIST 데이터 구조
+
+Keras의 MNIST 데이터는 학습 데이터와 테스트 데이터로 이미 나뉘어 제공된다.
+
+```python
+(X_train, y_train), (X_test, y_test) = tf.keras.datasets.mnist.load_data()
+
+print(X_train.shape)
+print(y_train.shape)
+print(X_test.shape)
+print(y_test.shape)
+```
+
+실행 결과:
+
+```text
+(60000, 28, 28)
+(60000,)
+(10000, 28, 28)
+(10000,)
+```
+
+확인할 내용:
+
+- 학습 이미지는 60,000개이고 테스트 이미지는 10,000개다.
+- 각 이미지는 `28 x 28` 크기의 흑백 이미지다.
+- label은 0부터 9까지의 숫자 class다.
+- 원본 이미지 값은 `uint8` 범위의 픽셀 값이므로 모델에 넣기 전에 정규화했다.
+
+### Dense 모델 입력으로 바꾸기
+
+이번 모델은 합성곱층이 아니라 `Dense` 층만 사용한다. 그래서 2차원 이미지 `(28, 28)`을 1차원 feature 784개로 펼쳤다.
+
+```python
+X_images = X_train.reshape((60000, 28 * 28))
+X_images_norm = (X_images / 255).astype('float32')
+
+X_images_test = X_test.reshape((10000, 28 * 28))
+X_images_test_norm = (X_images_test / 255).astype('float32')
+```
+
+정규화 전에는 픽셀 값이 0부터 255 사이지만, `/ 255`를 하면 0부터 1 사이 값으로 바뀐다. 이후 `astype('float32')`를 사용해 TensorFlow 학습에 적합한 실수형 배열로 맞췄다.
+
+주의할 점:
+
+- `reshape((60000, 28 * 28))`은 sample 수 60,000개를 유지하고 각 이미지만 784개 feature로 펼친다.
+- 학습 데이터와 테스트 데이터에 같은 방식의 정규화를 적용해야 한다.
+- 테스트 데이터의 정답 `y_test`는 전처리 기준을 정하는 데 사용하지 않고 평가에만 사용한다.
+
+### 모델 구조와 학습
+
+모델은 입력 784개, 은닉층 512개, 은닉층 256개, 출력층 10개로 구성했다.
+
+```python
+model = tf.keras.models.Sequential()
+model.add(tf.keras.layers.Input(shape=(28 * 28,)))
+model.add(tf.keras.layers.Dense(units=512, activation='relu', name='Hidden1'))
+model.add(tf.keras.layers.Dense(units=256, activation='relu', name='Hidden2'))
+model.add(tf.keras.layers.Dense(units=10, activation='softmax', name='OutputLayer'))
+model.summary()
+```
+
+저장된 모델 요약:
+
+```text
+Total params: 535,818
+Trainable params: 535,818
+```
+
+출력층은 숫자 0부터 9까지 10개 class 중 하나를 고르는 문제이므로 `softmax`를 사용했다. label이 one-hot 벡터가 아니라 정수 label이므로 손실 함수는 `sparse_categorical_crossentropy`를 사용했다.
+
+```python
+model.compile(
+    loss='sparse_categorical_crossentropy',
+    optimizer='adam',
+    metrics=['accuracy'],
+)
+
+model.fit(X_images_norm, y_train, epochs=40)
+model.save("MNIST_20260626_15_30.keras")
+```
+
+저장된 학습 로그에서는 epoch가 진행되며 학습 정확도가 0.99 이상까지 올라갔다. 다만 학습 정확도는 모델이 본 데이터에 대한 결과이므로 일반화 성능은 테스트 데이터로 따로 확인해야 한다.
+
+### 테스트 데이터 평가
+
+학습 후 테스트 데이터로 평가했다.
+
+```python
+model.evaluate(X_images_test_norm, y_test)
+```
+
+실행 결과:
+
+```text
+[0.18221096694469452, 0.982200026512146]
+```
+
+테스트 정확도는 약 `0.9822`다. 이 값은 MNIST 테스트 데이터 10,000개 기준으로 계산된 결과다. 학습 정확도보다 낮을 수 있으며, 그 차이는 과적합 여부를 살펴볼 때 중요한 신호가 된다.
+
+### 직접 그린 숫자 이미지 예측
+
+OpenCV로 직접 만든 PNG 이미지를 읽고, MNIST와 같은 입력 형태로 맞춘 뒤 예측했다.
+
+```python
+import cv2
+
+img = cv2.imread("digit9.png", cv2.IMREAD_GRAYSCALE)
+resize_img = cv2.resize(img, (28, 28))
+resize_img = resize_img.astype('float32')
+inverse_img = 255 - resize_img
+inverse_img_norm = inverse_img / 255
+
+result = model.predict(inverse_img_norm.reshape((1, 28 * 28)))
+print(result.argmax())
+```
+
+저장된 예측 결과:
+
+```text
+9
+```
+
+직접 그린 이미지의 배경과 글자 색이 MNIST와 반대일 수 있어 `255 - resize_img`로 흑백을 반전했다. 그 뒤 0부터 1 사이로 정규화하고, sample 하나를 의미하는 `(1, 784)` 형태로 바꿔 모델에 넣었다.
+
+저장된 예측 결과:
+
+| 파일 | 예측 결과 |
+|---|---:|
+| `digit4.png` | `8` |
+| `digit9.png` | `9` |
+| `digit5.png` | `5` |
+| `digit3.png` | `3` |
+| `digit4_2.png` | `4` |
+
+`digit4.png`는 4를 의도했지만 8로 예측되었다. 반면 `digit4_2.png`는 4로 예측되었다. 이는 모델 정확도가 높아도 입력 이미지의 선 굵기, 위치, 크기, 전처리 방식이 MNIST 분포와 다르면 오답이 나올 수 있음을 보여준다.
+
+정리:
+
+- MNIST 원본 이미지는 `(sample 수, 28, 28)`이고, Dense 모델에는 `(sample 수, 784)`로 펼쳐 넣었다.
+- 픽셀 값은 `/ 255`로 정규화하고 `float32`로 변환했다.
+- 정수 label을 사용할 때 `sparse_categorical_crossentropy`를 사용할 수 있다.
+- `softmax` 출력의 `argmax()`는 가장 점수가 높은 class 번호를 반환한다.
+- 테스트 정확도와 직접 만든 이미지 예측 결과는 다를 수 있다. 직접 만든 이미지는 학습 데이터 분포와 다르기 때문이다.
+- 저장 모델은 같은 구조와 가중치를 다시 사용할 수 있게 해 주지만, 입력 전처리는 학습 때와 동일하게 맞춰야 한다.
+
+### 공식 참고 문서
+
+- [Keras MNIST dataset](https://keras.io/api/datasets/mnist/)
+- [Keras Sequential model](https://keras.io/guides/sequential_model/)
+- [Keras Dense layer](https://keras.io/api/layers/core_layers/dense/)
+- [Keras model training APIs](https://keras.io/api/models/model_training_apis/)
+- [OpenCV image file reading and writing](https://docs.opencv.org/4.x/d4/da8/group__imgcodecs.html)
+
 ## 다음 정리 항목
 
 실습 진행에 따라 아래 주제를 순서대로 추가한다.
@@ -2076,3 +2403,7 @@ print(score)
 - 범주형 데이터 인코딩
 - 분류 모델의 `n_neighbors` 변화 비교
 - 학습 데이터 크기와 정확도 변화 비교
+- 퍼셉트론 수렴 조건과 선형 분리 가능성
+- 이진 분류 손실 함수 비교
+- MNIST 모델의 과적합 확인과 validation 데이터 사용
+- 저장 모델 불러오기와 추론 전처리 함수화
