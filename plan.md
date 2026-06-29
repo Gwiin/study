@@ -1,41 +1,34 @@
-# ML Study Workspace Plan
+# Realtime MNIST Inference Project Plan
 
 ## Target Outcome
-- Manage the machine-learning curriculum as one `uv` project under `ML/`.
-- Keep practice files grouped by topic and maintain one cumulative study note.
-- Provide a reusable prompt for future README updates and fact-checking.
+- Turn `ML/ml/project02.ipynb` into a realtime handwritten-digit project.
+- Use the latest MNIST CNN approach from `ML/ml/ex_11.ipynb`.
+- Keep the existing webcam capture/preprocessing code mostly intact.
 
 ## Success Criteria
-- `ML/pyproject.toml` and `ML/uv.lock` define the shared environment.
-- The NumPy notebook is located under `ML/numpy/`.
-- `ML/README.md` explains the environment and provides the initial study-note structure.
-- `ML/prompt.md` defines consistent writing, verification, and update rules.
-- Virtual environments and notebook-generated files are ignored by Git.
+- The notebook can train or load a CNN MNIST model.
+- Webcam ROI capture still saves intermediate images.
+- After capture, the processed image is resized/normalized and passed to the CNN model.
+- The predicted digit and confidence are displayed on the live frame and printed.
+- Reusable preprocessing logic is covered by a small automated test.
 
 ## Relevant Files
-- Create: `ML/README.md`
-- Create: `ML/prompt.md`
-- Add: `ML/references/1_넘파이_KarL.pdf`
-- Move: `pyproject.toml` to `ML/pyproject.toml`
-- Move: `uv.lock` to `ML/uv.lock`
-- Rename: `ML/Numpy/` to `ML/numpy/`
-- Modify: `.gitignore`
+- Modify: `ML/ml/project02.ipynb`
+- Add: `ML/ml/mnist_realtime_utils.py`
+- Add: `ML/tests/test_mnist_realtime_utils.py`
 
 ## Implementation Checklist
-- [x] Relocate the `uv` project files to `ML/`.
-- [x] Rename the NumPy study directory using Python naming conventions.
-- [x] Create the cumulative ML study README.
-- [x] Create the reusable ML note-writing prompt.
-- [x] Add Python/uv/Jupyter ignore rules.
-- [x] Validate TOML, notebook JSON, `uv sync`, and Git status.
-- [x] Add the NumPy lecture PDF and connect it to the README workflow.
+- [x] Add tests for CNN input preprocessing shape and value range.
+- [x] Add a small preprocessing helper module.
+- [x] Update `project02.ipynb` with CNN training/loading cells.
+- [x] Add realtime prediction to the existing webcam capture cell.
+- [x] Validate notebook JSON and targeted tests.
 
 ## Validation Checks
-- Parse `ML/pyproject.toml` with Python `tomllib`.
-- Parse `ML/numpy/ex_01.ipynb` as JSON.
-- Run `uv sync --project ML`.
-- Inspect `git status --short --untracked-files=all`.
+- Run targeted Python test for preprocessing helper.
+- Parse `ML/ml/project02.ipynb` as JSON.
+- Verify `uv sync` creates a runnable `.venv`.
+- Inspect Git diff for scoped changes.
 
 ## Blockers / Open Questions
-- Python is pinned to the 3.13 series through `requires-python` and `ML/.python-version`.
-- The obsolete `ML/numpy/.venv` was removed after its notebook process released the file lock.
+- Webcam execution cannot be fully verified non-interactively from Codex.
