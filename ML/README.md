@@ -45,14 +45,22 @@ ML/
    ├─ ex_06.ipynb
    ├─ ex_07.ipynb
    ├─ ex_08.ipynb
+   ├─ ex_09.ipynb
+   ├─ ex_10.ipynb
+   ├─ ex_11.ipynb
    ├─ project01.ipynb
+   ├─ project02.ipynb
    ├─ titanic.csv
    ├─ MNIST_20260626_15_30.keras
+   ├─ MNIST_20260629_11-35.keras
    ├─ digit3.png
    ├─ digit4.png
    ├─ digit4_2.png
    ├─ digit5.png
-   └─ digit9.png
+   ├─ digit9.png
+   ├─ gray_image.png
+   ├─ digit_binary_image.png
+   └─ IMAGE_FOR_TEST.png
 ```
 
 - `README.md`: ML 과정 전체 학습 정리
@@ -2387,6 +2395,324 @@ print(result.argmax())
 - [Keras model training APIs](https://keras.io/api/models/model_training_apis/)
 - [OpenCV image file reading and writing](https://docs.opencv.org/4.x/d4/da8/group__imgcodecs.html)
 
+## 범주형 인코딩과 Dropout 적용 MNIST
+
+`ml/ex_09.ipynb`에서는 머신러닝 입력에 문자열 범주를 바로 넣기 어렵기 때문에 one-hot encoding으로 바꾸는 흐름을 확인했다. 범주형 feature는 scikit-learn의 `OneHotEncoder`로 바꾸고, 정수 class label은 Keras의 `to_categorical()`로 바꿨다.
+
+```python
+X = np.array([['Korea', 44, 7200], ['Japan', 27, 4800], ['China', 30, 6100]])
+
+onehotencoder = OneHotEncoder()
+XX = onehotencoder.fit_transform(X[:, 0].reshape(-1, 1)).toarray()
+print(XX)
+```
+
+실행 결과:
+
+```text
+[[0. 0. 1.]
+ [0. 1. 0.]
+ [1. 0. 0.]]
+```
+
+`X[:, 0]`은 국가명만 뽑은 1차원 배열이다. `OneHotEncoder`는 2차원 입력을 기대하므로 `reshape(-1, 1)`로 sample 수는 자동 계산하고 feature 1개인 형태로 바꿨다.
+
+```python
+class_vector = [2, 6, 6, 1]
+output = to_categorical(class_vector, num_classes=7)
+print(output)
+```
+
+실행 결과:
+
+```text
+[[0. 0. 1. 0. 0. 0. 0.]
+ [0. 0. 0. 0. 0. 0. 1.]
+ [0. 0. 0. 0. 0. 0. 1.]
+ [0. 1. 0. 0. 0. 0. 0.]]
+```
+
+`num_classes=7`로 지정했기 때문에 class index 0부터 6까지를 표현하는 길이 7짜리 벡터가 만들어졌다. 정수 label을 그대로 쓰면 `sparse_categorical_crossentropy`를 사용하고, one-hot label을 쓰면 `categorical_crossentropy`를 사용한다.
+
+같은 노트북에서는 MNIST Dense 모델에 `Flatten`과 `Dropout(0.2)`를 추가했다.
+
+```python
+model = keras.Sequential()
+model.add(keras.layers.Input(shape=(28, 28)))
+model.add(keras.layers.Flatten())
+model.add(keras.layers.Dense(512, activation='relu'))
+model.add(keras.layers.Dropout(0.2))
+model.add(keras.layers.Dense(10, activation='softmax'))
+
+model.compile(
+    optimizer='adam',
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy'],
+)
+```
+
+5 epoch 학습 후 테스트 결과:
+
+```text
+[0.07157623022794724, 0.9772999882698059]
+```
+
+이후 같은 모델을 20 epoch 더 학습한 뒤 테스트 결과는 다음과 같았다.
+
+```text
+[0.10690991580486298, 0.982699990272522]
+```
+
+정확도는 `0.9773`에서 `0.9827`로 올라갔지만 loss는 `0.0716`에서 `0.1069`로 커졌다. 정확도만 보면 개선처럼 보일 수 있지만, loss까지 함께 보면 모델의 확신이 틀린 sample에서 더 나빠졌을 가능성도 있다. epoch를 늘렸다는 이유만으로 항상 더 좋은 모델이라고 단정하면 안 된다.
+
+정리:
+
+- 문자열 범주는 one-hot encoding으로 숫자 feature로 바꿀 수 있다.
+- `OneHotEncoder`에는 보통 `(sample 수, feature 수)` 형태의 2차원 입력을 넣는다.
+- 정수 label과 one-hot label은 사용하는 loss 함수가 다르다.
+- `Flatten`은 `(28, 28)` 이미지를 Dense 층에 넣기 위해 784개 feature로 펼친다.
+- `Dropout`은 학습 중 일부 뉴런 출력을 무작위로 제외해 과적합을 줄이려는 방법이다.
+- 모델 비교는 같은 테스트 데이터 기준의 accuracy와 loss를 함께 봐야 한다.
+
+## Fashion-MNIST 다중 분류
+
+`ml/ex_10.ipynb`에서는 MNIST 숫자 대신 Fashion-MNIST 의류 이미지를 분류했다. 데이터 구조는 MNIST와 비슷하지만 label은 숫자 모양이 아니라 의류 class를 의미한다.
+
+```python
+fashion_mnist = keras.src.datasets.fashion_mnist
+(train_images, train_labels), (test_images, test_labels) = fashion_mnist.load_data()
+
+print(train_images.shape)
+print(train_labels.shape)
+print(train_labels[:5])
+```
+
+저장된 실행 결과:
+
+```text
+(60000, 28, 28)
+(60000,)
+[9 0 0 3 0]
+```
+
+label을 one-hot으로 바꾼 뒤 `categorical_crossentropy`를 사용했다.
+
+```python
+train_labels_one_hot = keras.utils.to_categorical(train_labels)
+test_labels_one_hot = keras.utils.to_categorical(test_labels)
+
+model = keras.models.Sequential(name='MNIST_FASTHON')
+model.add(keras.layers.Input((28, 28)))
+model.add(keras.layers.Flatten())
+model.add(keras.layers.Dense(128, activation='relu'))
+model.add(keras.layers.Dense(64, activation='relu'))
+model.add(keras.layers.Dropout(0.2))
+model.add(keras.layers.Dense(10, activation='softmax'))
+```
+
+모델 요약에서 확인한 parameter 수는 `109,386`개다. 입력 이미지는 `/ 255.0`으로 정규화하고 10 epoch 학습했다.
+
+```python
+train_images = train_images / 255.0
+test_images = test_images / 255.0
+
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+model.fit(train_images, train_labels_one_hot, epochs=10)
+```
+
+테스트 평가 결과:
+
+```text
+정확도: 0.8931000232696533
+```
+
+MNIST 숫자 분류보다 낮은 정확도가 나왔다. Fashion-MNIST는 같은 28x28 흑백 이미지라도 의류 모양 class가 더 헷갈릴 수 있으므로, 숫자 MNIST 결과와 단순 비교해 모델이 나빠졌다고만 해석하면 안 된다. 데이터셋과 문제 난이도가 다르다.
+
+정리:
+
+- Fashion-MNIST도 `(60000, 28, 28)` 학습 이미지와 `(10000, 28, 28)` 테스트 이미지를 제공한다.
+- one-hot label을 사용하면 loss는 `categorical_crossentropy`를 사용한다.
+- 입력 전처리는 학습 데이터와 테스트 데이터에 같은 방식으로 적용한다.
+- 다른 데이터셋의 정확도는 문제 난이도가 다르므로 직접적인 성능 비교 근거로 쓰기 어렵다.
+
+## CNN 기반 MNIST 분류
+
+`ml/ex_11.ipynb`에서는 Dense 층만 사용한 MNIST 모델에서 더 나아가 CNN 구조를 사용했다. `Conv2D`는 이미지의 공간 구조를 유지하면서 작은 영역의 패턴을 학습하므로 손글씨 이미지처럼 위치와 모양 정보가 중요한 데이터에 적합하다.
+
+먼저 MNIST 이미지를 채널 차원이 있는 4차원 입력으로 바꿨다.
+
+```python
+(train_images, train_labels), (test_images, test_labels) = datasets.mnist.load_data()
+
+train_images = train_images.reshape((60000, 28, 28, 1))
+test_images = test_images.reshape((10000, 28, 28, 1))
+
+print(train_images.shape)
+print(test_images.shape)
+```
+
+실행 결과:
+
+```text
+(60000, 28, 28, 1)
+(10000, 28, 28, 1)
+```
+
+마지막 `1`은 흑백 이미지의 channel 수다. RGB 이미지라면 보통 channel 수가 3이 된다.
+
+모델은 convolution과 pooling으로 feature map을 줄인 뒤, `Flatten` 이후 Dense 층으로 분류했다.
+
+```python
+model = tf.keras.models.Sequential()
+model.add(tf.keras.layers.Input((28, 28, 1)))
+model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=(3, 3), activation='relu'))
+model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=(3, 3), activation='relu'))
+model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2)))
+
+model.add(tf.keras.layers.Conv2D(filters=16, kernel_size=(3, 3), activation='relu'))
+model.add(tf.keras.layers.Conv2D(filters=16, kernel_size=(3, 3), activation='relu'))
+model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2)))
+
+model.add(tf.keras.layers.Flatten())
+model.add(tf.keras.layers.Dense(64, activation='relu'))
+model.add(tf.keras.layers.Dense(32, activation='relu'))
+model.add(tf.keras.layers.Dense(16, activation='relu'))
+model.add(tf.keras.layers.Dropout(0.2))
+model.add(tf.keras.layers.Dense(10, activation='softmax'))
+```
+
+모델 요약에서 확인한 주요 출력 형태:
+
+```text
+Conv2D      -> (None, 26, 26, 32)
+Conv2D      -> (None, 24, 24, 32)
+MaxPooling2D -> (None, 12, 12, 32)
+Conv2D      -> (None, 10, 10, 16)
+Conv2D      -> (None, 8, 8, 16)
+MaxPooling2D -> (None, 4, 4, 16)
+Flatten     -> (None, 256)
+Total params: 35,738
+```
+
+`padding`을 따로 지정하지 않았으므로 기본 `valid` 방식으로 convolution이 적용되어 28에서 26, 24처럼 가로와 세로 크기가 줄었다. `MaxPooling2D(pool_size=(2, 2))`는 공간 크기를 절반으로 줄인다.
+
+학습 전 픽셀 값은 기존과 같이 0부터 1 사이로 정규화했다.
+
+```python
+model.compile(
+    loss='sparse_categorical_crossentropy',
+    optimizer='adam',
+    metrics=['accuracy'],
+)
+
+(train_images, test_images) = (train_images / 255.0, test_images / 255.0)
+model.fit(train_images, train_labels, epochs=10)
+model.evaluate(test_images, test_labels)
+```
+
+테스트 평가 결과:
+
+```text
+[0.03711361438035965, 0.9909999966621399]
+```
+
+이번 CNN 모델의 테스트 정확도는 약 `0.9910`이다. 같은 데이터셋에서 이전 Dense 모델의 테스트 정확도 `0.9822`, Dropout Dense 모델의 `0.9827`보다 높게 나왔다. 다만 이 비교는 저장된 실행 결과 기준이며, epoch 수와 구조가 다르므로 CNN이 항상 더 좋다고 일반화하지 않는다.
+
+정리:
+
+- CNN 입력은 보통 `(sample 수, height, width, channel)` 형태다.
+- 흑백 MNIST는 channel 수가 1이므로 `(60000, 28, 28, 1)`로 reshape했다.
+- `Conv2D`는 이미지의 지역 패턴을 feature map으로 학습한다.
+- `MaxPooling2D`는 feature map의 공간 크기를 줄여 계산량과 위치 민감도를 낮춘다.
+- CNN 뒤의 `Flatten`은 Dense 분류기로 넘기기 위해 feature map을 1차원으로 펼친다.
+- 모델 구조, epoch, 전처리 조건이 다르면 정확도 비교는 제한적으로 해석해야 한다.
+
+## 웹캠 숫자 이미지 전처리 프로젝트
+
+`ml/project02.ipynb`는 웹캠으로 직접 숫자를 촬영하고, MNIST 모델에 넣기 좋은 이미지로 전처리하기 위한 실습이다. 이 노트북은 저장된 출력이 아니라 OpenCV 창과 파일 저장으로 동작한다.
+
+```python
+cap = cv2.VideoCapture(0)
+
+while True:
+    ret, frame = cap.read()
+    flip_frame = cv2.flip(frame, 1)
+    height, width, _ = flip_frame.shape
+    center_x, center_y = width // 2, height // 2
+    roi = flip_frame[center_y - 150:center_y + 150, center_x - 150:center_x + 150]
+```
+
+웹캠 frame을 좌우 반전한 뒤 가운데 `300 x 300` 영역을 ROI로 잘라 사용했다. `c` 키를 누르면 ROI를 흑백으로 바꾸고 저장한다.
+
+```python
+gray_image = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+gray_image = np.flip(gray_image, axis=1)
+cv2.imwrite('gray_image.png', gray_image)
+
+gaussian_blur = cv2.GaussianBlur(gray_image, (5, 5), 3)
+_, otsh_thresh = cv2.threshold(
+    gaussian_blur,
+    0,
+    255,
+    cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+)
+```
+
+저장된 파일 기준 이미지 크기:
+
+| 파일 | 크기 | 의미 |
+|---|---:|---|
+| `gray_image.png` | `300 x 300` | ROI를 흑백으로 변환한 이미지 |
+| `digit_binary_image.png` | `300 x 300` | Otsu threshold와 erosion을 거친 이진 이미지 |
+| `IMAGE_FOR_TEST.png` | `187 x 248` | contour 기준 crop 후 색을 반전한 추론 후보 이미지 |
+
+이후 과정은 threshold 결과에서 숫자 영역을 찾고, 가장 큰 contour를 기준으로 crop한 뒤 색을 반전한다.
+
+```python
+kernel = np.ones((5, 5), np.uint8)
+erosion = cv2.erode(otsh_thresh, kernel, iterations=5)
+
+digit_mask = np.uint8(img < 128) * 255
+contours, _ = cv2.findContours(digit_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+if contours:
+    contour = max(contours, key=cv2.contourArea)
+    x, y, crop_w, crop_h = cv2.boundingRect(contour)
+    padding = 10
+    x1 = max(0, x - padding)
+    y1 = max(0, y - padding)
+    x2 = min(w, x + crop_w + padding)
+    y2 = min(h, y + crop_h + padding)
+    crop = img[y1:y2, x1:x2]
+else:
+    crop = img
+
+reversed_image = cv2.bitwise_not(crop)
+cv2.imwrite("IMAGE_FOR_TEST.png", reversed_image)
+```
+
+주의할 점:
+
+- 웹캠 입력은 조명, 배경, 손글씨 위치에 따라 threshold 결과가 크게 달라진다.
+- erosion은 노이즈를 줄일 수 있지만 반복 횟수가 크면 숫자 획도 함께 줄어들 수 있다.
+- `IMAGE_FOR_TEST.png`는 crop된 이미지이므로 MNIST 모델에 넣기 전에 다시 `28 x 28` resize와 `/ 255` 정규화가 필요하다.
+- 직접 촬영한 이미지는 MNIST 학습 데이터와 분포가 다르므로 모델 정확도가 높아도 오답이 나올 수 있다.
+
+정리:
+
+- 웹캠 frame에서 ROI를 정하고 흑백 변환, blur, Otsu threshold, erosion, contour crop, 색 반전 순서로 전처리했다.
+- 중간 파일을 저장하면 어느 단계에서 이미지가 망가졌는지 확인하기 쉽다.
+- 추론 전처리는 모델 학습 때 사용한 입력 형태와 값 범위에 맞춰야 한다.
+
+### 공식 참고 문서
+
+- [Keras Fashion-MNIST dataset](https://keras.io/api/datasets/fashion_mnist/)
+- [Keras image classification from scratch](https://keras.io/examples/vision/image_classification_from_scratch/)
+- [Keras Dropout layer](https://keras.io/api/layers/regularization_layers/dropout/)
+- [Keras Conv2D layer](https://keras.io/api/layers/convolution_layers/convolution2d/)
+- [OpenCV thresholding](https://docs.opencv.org/4.x/d7/d4d/tutorial_py_thresholding.html)
+- [OpenCV contours](https://docs.opencv.org/4.x/d4/d73/tutorial_py_contours_begin.html)
+
 ## 다음 정리 항목
 
 실습 진행에 따라 아래 주제를 순서대로 추가한다.
@@ -2405,5 +2731,6 @@ print(result.argmax())
 - 학습 데이터 크기와 정확도 변화 비교
 - 퍼셉트론 수렴 조건과 선형 분리 가능성
 - 이진 분류 손실 함수 비교
-- MNIST 모델의 과적합 확인과 validation 데이터 사용
-- 저장 모델 불러오기와 추론 전처리 함수화
+- validation 데이터 사용과 epoch별 과적합 확인
+- CNN 모델 저장 파일 관리
+- 저장 모델 불러오기와 웹캠 이미지 추론 전처리 함수화
