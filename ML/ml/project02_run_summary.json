@@ -1,0 +1,11 @@
+{
+  "loaded_existing_model": false,
+  "model_path": "/Users/jeong-gwiin/Desktop/study/ML/ml/CNN_MNIST_realtime.keras",
+  "epochs_run": 10,
+  "loss": 0.04613655433058739,
+  "accuracy": 0.9904000163078308,
+  "elapsed_seconds": 197.68,
+  "model_params": 35738,
+  "final_train_accuracy": 0.9888333082199097,
+  "final_train_loss": 0.04092405363917351
+}
