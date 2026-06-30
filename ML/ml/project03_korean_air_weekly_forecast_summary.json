@@ -1,0 +1,21 @@
+{
+  "stock_code": "003490",
+  "stock_name": "Korean Air",
+  "data_start": "2016-01-04",
+  "last_observed_date": "2026-06-30",
+  "generated_at": "2026-06-30 11:32:41",
+  "window": 40,
+  "epochs": 35,
+  "forecast_business_days": 10,
+  "train_rows": 2312,
+  "test_rows": 180,
+  "final_train_loss": 0.00053883291548118,
+  "test_loss": 0.0010046114912256598,
+  "test_mae": 560.2368272569446,
+  "test_rmse": 818.7925465259467,
+  "test_mape_percent": 2.242367966916201,
+  "test_regression_accuracy_percent": 97.7576320330838,
+  "test_direction_accuracy_percent": 46.36871508379888,
+  "forecast_start": "2026-07-01",
+  "forecast_end": "2026-07-14"
+}

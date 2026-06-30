@@ -3,6 +3,8 @@ name = "ml-study"
 version = "0.1.0"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    "beautifulsoup4==4.15.0",
+    "finance-datareader==0.9.202",
     "ipykernel>=7.3.0",
     "matplotlib==3.10.9",
     "numpy==2.4.5",

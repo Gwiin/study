@@ -2704,6 +2704,173 @@ cv2.imwrite("IMAGE_FOR_TEST.png", reversed_image)
 - 중간 파일을 저장하면 어느 단계에서 이미지가 망가졌는지 확인하기 쉽다.
 - 추론 전처리는 모델 학습 때 사용한 입력 형태와 값 범위에 맞춰야 한다.
 
+## LSTM 기반 주가 시계열 예측
+
+`ml/project03.ipynb`에서는 삼성전자 시가 데이터를 예제로 사용해 시계열 데이터를 LSTM 입력 형태로 바꾸는 흐름을 실습했다. 이후 `ml/project03_korean_air_forecast.py`에서는 같은 구조를 대한항공(`003490`) 시가 예측 스크립트로 분리했다.
+
+주가 데이터는 `FinanceDataReader`로 가져오고, 예측 대상은 `Open` 컬럼 하나로 제한했다.
+
+```python
+stock = fdr.DataReader(STOCK_CODE, "2016")
+open_prices = stock[["Open"]].dropna().copy()
+```
+
+LSTM은 값의 스케일에 민감하므로 `MinMaxScaler`로 0부터 1 사이로 정규화했다. 이후 일정 기간의 과거 값을 입력으로 두고 다음 값을 target으로 만드는 sliding window 샘플을 만들었다.
+
+```python
+def make_samples(data: np.ndarray, window: int) -> tuple[np.ndarray, np.ndarray]:
+    train = []
+    target = []
+    for i in range(len(data) - window):
+        train.append(data[i : i + window])
+        target.append(data[i + window])
+    return np.array(train), np.array(target)
+```
+
+이번 스크립트의 주요 설정:
+
+| 항목 | 값 |
+|---|---:|
+| 종목 코드 | `003490` |
+| 입력 window | `40` |
+| test 기준 크기 | `220` |
+| epoch | `35` |
+| 예측 영업일 수 | `10` |
+
+모델은 단순한 LSTM 1개와 Dense 출력층으로 구성했다.
+
+```python
+model = Sequential(
+    [
+        Input(shape=(window, 1)),
+        LSTM(16, activation="tanh", return_sequences=False),
+        Dense(1),
+    ]
+)
+model.compile(loss="mse", optimizer="adam")
+```
+
+테스트 구간 예측값은 다시 원래 가격 단위로 되돌린 뒤 MAE, RMSE, MAPE, 방향 정확도를 계산했다. 저장된 실행 요약 기준 결과는 다음과 같다.
+
+| 지표 | 값 |
+|---|---:|
+| 학습 데이터 시작일 | `2016-01-04` |
+| 마지막 관측일 | `2026-06-30` |
+| train sample | `2312` |
+| test sample | `180` |
+| final train loss | `0.0005388329` |
+| test loss | `0.0010046115` |
+| test MAE | `560.24` |
+| test RMSE | `818.79` |
+| test MAPE | `2.24%` |
+| 방향 정확도 | `46.37%` |
+
+예측 결과는 CSV, JSON, PNG로 분리해 저장했다.
+
+| 파일 | 역할 |
+|---|---|
+| `ml/project03_korean_air_weekly_forecast.csv` | 10영업일 예측 시가 |
+| `ml/project03_korean_air_weekly_forecast_summary.json` | 학습 설정과 평가 지표 |
+| `ml/project03_korean_air_weekly_forecast.png` | 최근 실제 시가와 예측 구간 그래프 |
+
+생성된 예측값:
+
+| Date | Predicted_Open |
+|---|---:|
+| 2026-07-01 | 27980 |
+| 2026-07-02 | 27948 |
+| 2026-07-03 | 27907 |
+| 2026-07-06 | 27858 |
+| 2026-07-07 | 27801 |
+| 2026-07-08 | 27741 |
+| 2026-07-09 | 27677 |
+| 2026-07-10 | 27612 |
+| 2026-07-13 | 27547 |
+| 2026-07-14 | 27481 |
+
+주의할 점:
+
+- LSTM 예측은 과거 시가 패턴만 사용하므로 뉴스, 유가, 환율, 시장 심리 같은 외부 요인은 반영하지 않는다.
+- MAPE가 낮아 보여도 방향 정확도가 낮으면 실제 매매 판단에는 부적합할 수 있다.
+- recursive forecast는 앞 단계 예측값을 다음 입력에 다시 넣기 때문에 예측 구간이 길어질수록 오차가 누적될 수 있다.
+- 이 실습 결과는 학습용이며 투자 판단 근거로 사용하면 안 된다.
+
+정리:
+
+- 시계열 데이터는 과거 `window` 길이만큼의 구간을 입력으로 만들고 다음 시점 값을 target으로 둔다.
+- LSTM 입력은 `(sample 수, time step, feature 수)` 형태가 필요하다.
+- 정규화한 값으로 학습한 뒤 실제 가격 해석을 위해 `inverse_transform`으로 원래 단위로 되돌린다.
+- 회귀 문제는 accuracy보다 MAE, RMSE, MAPE 같은 오차 지표로 평가하는 것이 자연스럽다.
+- 주가처럼 변동성이 큰 데이터는 값의 오차와 방향 예측력을 함께 확인해야 한다.
+
+## 소량 이미지 데이터 CNN 이진 분류
+
+`ml/project04.ipynb`에서는 얼굴 이미지와 동물 이미지를 각각 15장씩 불러와 CNN으로 이진 분류하는 실습을 진행했다. 테스트 이미지는 별도 폴더의 10장을 사용했다.
+
+이미지는 OpenCV로 읽은 뒤 모델 입력을 맞추기 위해 `128 x 128` 크기와 RGB 색상 순서로 통일했다.
+
+```python
+img = cv2.imread(path, cv2.IMREAD_COLOR)
+img = cv2.resize(img, (128, 128))
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+```
+
+학습 데이터와 label은 얼굴/동물 두 클래스로 직접 구성했다.
+
+```python
+X = face_images + animal_images
+y = [[1, 0]] * len(face_images) + [[0, 1]] * len(animal_images)
+
+X_train = tf.constant(X, dtype=tf.float32)
+y_train = tf.constant(y, dtype=tf.float32)
+X_train = X_train / 255.0
+```
+
+label이 one-hot 형태이므로 loss는 `categorical_crossentropy`를 사용했다. 출력층은 두 class 확률을 만들기 위해 `Dense(2, activation='softmax')`로 끝난다.
+
+```python
+model = tf.keras.models.Sequential([
+    tf.keras.Input((128, 128, 3)),
+    tf.keras.layers.Conv2D(128, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
+    tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
+    tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
+    tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
+    tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(32, activation='relu'),
+    tf.keras.layers.Dense(2, activation='softmax'),
+])
+```
+
+테스트 이미지도 같은 방식으로 `128 x 128`, RGB, `/ 255.0` 전처리를 적용한 뒤 예측했다.
+
+```python
+X_test = tf.constant(test_images, dtype=tf.float32)
+X_test = X_test / 255.0
+y_predict = model.predict(X_test)
+print(np.round(y_predict))
+```
+
+주의할 점:
+
+- class별 학습 이미지가 15장뿐이므로 모델은 쉽게 과적합될 수 있다.
+- 학습 이미지와 테스트 이미지의 배경, 구도, 조명 차이가 크면 예측이 불안정해질 수 있다.
+- 데이터가 적을수록 train accuracy보다 별도 테스트 이미지 결과를 직접 확인하는 과정이 더 중요하다.
+- 실습을 확장하려면 train/validation 분리, data augmentation, Dropout, 저장 모델 재사용을 추가하는 것이 좋다.
+
+정리:
+
+- 컬러 CNN 입력은 `(sample 수, height, width, channel)` 형태이며 RGB 이미지는 channel 수가 3이다.
+- OpenCV는 기본적으로 BGR 순서로 읽기 때문에 Matplotlib/TensorFlow 흐름에서는 RGB 변환이 필요하다.
+- one-hot label과 softmax 출력 조합에서는 `categorical_crossentropy`를 사용한다.
+- 소량 이미지 데이터에서는 모델 구조를 깊게 만드는 것보다 데이터 수, 검증 방식, 전처리 일관성이 더 중요하다.
+
 ### 공식 참고 문서
 
 - [Keras Fashion-MNIST dataset](https://keras.io/api/datasets/fashion_mnist/)
