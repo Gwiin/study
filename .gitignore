@@ -19,6 +19,15 @@ __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
 
+# Project04 generated artifacts
+ML/ml/hand_gesture_captures/
+ML/ml/project04_captures/
+ML/ml/project04_portfolio_captures/
+ML/ml/project04_hand_gesture_*_checkpoints/
+ML/ml/project04_hand_gesture_balanced.keras
+ML/ml/project04_hand_gesture_clean_retrain.keras
+ML/ml/project04_hand_gesture_full_unweighted.keras
+
 # CMake out-of-source build directories
 cmake-build-*/
 
